@@ -1,0 +1,191 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Branding */
+  --color-primary: #FF5E00;     /* Naranja Chacas */
+  --color-secondary: #FBBF24;   /* Amarillo Dorado */
+  --color-accent-red: #E11D48;  /* Rojo Chacas X */
+  --color-error: #EF4444;       /* Rojo Alerta */
+  --color-success: #10B981;     /* Verde Éxito */
+
+  /* Light Theme (Premium Slate Cool) */
+  --color-background: #F8FAFC;  /* Slate 50 */
+  --color-surface: #FFFFFF;     /* Pure White Card surfaces */
+  --color-header-bg: rgba(248, 250, 252, 0.85);
+  --color-border: #E2E8F0;      /* Slate 200 */
+  --color-text-primary: #0F172A; /* Slate 900 */
+  --color-text-secondary: #64748B; /* Slate 500 */
+  --font-family: 'Outfit', sans-serif;
+  --font-headings: 'Space Grotesk', sans-serif;
+  --shadow-premium: 0 10px 30px -10px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.03);
+  --color-input-bg: #F1F5F9;    /* Slate 100 */
+
+  /* Countdown Overlay Variables */
+  --color-countdown-overlay-bg: rgba(248, 250, 252, 0.95);
+  --color-countdown-text: #0F172A;
+
+  /* Status Colors - Light Theme */
+  --status-pre-registered-color: #B45309;
+  --status-pre-registered-bg: rgba(180, 83, 9, 0.08);
+  --status-racing-color: #C2410C;
+  --status-racing-bg: rgba(194, 65, 12, 0.08);
+  --status-finished-color: #047857;
+  --status-finished-bg: rgba(4, 120, 87, 0.08);
+  --status-dnf-color: #B91C1C;
+  --status-dnf-bg: rgba(185, 28, 28, 0.08);
+  --status-dns-color: #475569;
+  --status-dns-bg: rgba(71, 85, 105, 0.08);
+}
+
+/* Dark Theme overrides when .dark-theme is active */
+.dark-theme {
+  /* Restored previous original colors */
+  --color-background: #000000;
+  --color-surface: #0F0F0F;
+  --color-header-bg: rgba(0, 0, 0, 0.82);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #A0A0A0;
+  --shadow-premium: 0 4px 30px rgba(0, 0, 0, 0.5);
+  --color-input-bg: var(--color-surface);
+
+  /* Countdown Overlay Variables */
+  --color-countdown-overlay-bg: rgba(0, 0, 0, 0.96);
+  --color-countdown-text: #FFFFFF;
+
+  /* Status Colors - Dark Theme */
+  --status-pre-registered-color: #FBBF24;
+  --status-pre-registered-bg: rgba(251, 191, 36, 0.15);
+  --status-racing-color: #FF5E00;
+  --status-racing-bg: rgba(255, 94, 0, 0.15);
+  --status-finished-color: #10B981;
+  --status-finished-bg: rgba(16, 185, 129, 0.15);
+  --status-dnf-color: #EF4444;
+  --status-dnf-bg: rgba(239, 68, 68, 0.15);
+  --status-dns-color: #94A3B8;
+  --status-dns-bg: rgba(148, 163, 184, 0.15);
+}
+
+/* Global Reset & Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headings);
+  font-weight: 700;
+}
+
+input, select, button, textarea {
+  font-family: var(--font-family);
+}
+
+/* Base (Móvil): scroll natural, sin bloqueo de viewport — SDD-005 Regla 1 */
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+}
+
+/* En desktop el layout del dashboard controla su propio scroll interno */
+@media (min-width: 1024px) {
+  body {
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+}
+
+/* Estilo de la barra de scroll */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 94, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Animaciones utilitarias */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Tooltips globales premium */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translate(-50%, 4px) scale(0.9);
+  background: #1e1e24;
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+.dark-theme [data-tooltip]::after {
+  background: #ffffff;
+  color: #1e1e24;
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+/* Alineación de tooltips para prevenir desbordes laterales */
+[data-tooltip-align="right"]::after {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px) scale(0.9);
+}
+[data-tooltip-align="right"]:hover::after {
+  transform: translate(0, 0) scale(1);
+}
+
+/* Elevación profesional de modales en tema oscuro */
+.dark-theme .modal-container {
+  background-color: #121212 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(255, 94, 0, 0.05) !important;
+}
