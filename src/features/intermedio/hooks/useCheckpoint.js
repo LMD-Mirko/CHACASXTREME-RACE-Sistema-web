@@ -7,7 +7,7 @@ import {
 import { addPass, getPasses, deletePass, clearPasses } from '../utils/indexedDB';
 
 // Global shared state for intermediate checkpoint
-const checkpointName = ref(localStorage.getItem('checkpoint_name') || 'Punto 1');
+const checkpointName = ref(localStorage.getItem('checkpoint_name') || 'Control Intermedio');
 const activeCompetition = ref(null);
 const selectedPhase = ref('practica');
 const hasStart = ref(false);

@@ -23,6 +23,7 @@ const navItems = [
   { name: 'categorias-explorer', path: '/dashboard/categorias-explorer', icon: 'grid_view',     label: 'Categorías' },
   { name: 'checkpoint',          path: '/dashboard/checkpoint',          icon: 'location_on',   label: 'Checkpoint' },
   { name: 'meta',                path: '/dashboard/meta',                icon: 'emoji_events',  label: 'Meta' },
+  { name: 'confirmacion',        path: '/dashboard/confirmacion',        icon: 'assignment_turned_in', label: 'Confirmación' },
   { name: 'competidores',        path: '/dashboard/competidores',        icon: 'group',         label: 'Competidores' },
   { name: 'configuracion',       path: '/dashboard/configuracion',       icon: 'settings',      label: 'Configuración' },
 ];

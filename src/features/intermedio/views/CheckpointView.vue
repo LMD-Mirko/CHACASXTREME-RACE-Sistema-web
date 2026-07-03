@@ -68,7 +68,7 @@ import CheckpointScanner from '../components/CheckpointScanner.vue';
 import CheckpointHistory from '../components/CheckpointHistory.vue';
 import CheckpointOfflineStatus from '../components/CheckpointOfflineStatus.vue';
 
-const isSetupComplete = ref(false);
+const isSetupComplete = ref(true);
 
 const {
   checkpointName,

@@ -85,8 +85,24 @@ const plates = reactive({});
 
 function formatTimeStr(dateStr) {
   if (!dateStr) return '';
-  const parts = dateStr.split(' ');
-  return parts.length > 1 ? parts[1] : dateStr;
+  try {
+    let cleanStr = String(dateStr);
+    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
+      if (cleanStr.includes(' ')) {
+        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
+      } else {
+        cleanStr = cleanStr + 'Z';
+      }
+    }
+    const date = new Date(cleanStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  } catch (e) {
+    return dateStr;
+  }
 }
 
 function onAssign(id) {

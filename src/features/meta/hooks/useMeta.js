@@ -2,10 +2,11 @@ import { ref, computed, watch } from 'vue';
 import {
   freezeTime, getQueue, assignPlate, annulTime, clearAllPendingTimes
 } from '../services/metaService';
-import { getActiveCompetition } from '../../partida/services/partidaService';
+import { getActiveCompetition, getRidersByCategory } from '../../partida/services/partidaService';
 
 const activeCompetition = ref(null);
 const finishTimeQueue = ref([]);
+const riders = ref([]); // Flat list of all riders
 const isLoading = ref(false);
 const errorMessage = ref('');
 
@@ -14,6 +15,10 @@ export function useMeta() {
     isLoading.value = true;
     try {
       activeCompetition.value = await getActiveCompetition();
+      if (activeCompetition.value) {
+        const ridersList = await getRidersByCategory('');
+        riders.value = ridersList || [];
+      }
       await refreshQueue();
     } catch (err) {
       errorMessage.value = 'Error al rehidratar la cola de Meta.';
@@ -65,6 +70,9 @@ export function useMeta() {
       await assignPlate(queueId, plateNumber);
       // Remove from local queue
       finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== queueId);
+      // Refresh riders list
+      const ridersList = await getRidersByCategory('');
+      riders.value = ridersList || [];
     } catch (err) {
       alert(err.response?.data?.message || 'Error al asignar la placa.');
     } finally {
@@ -105,7 +113,7 @@ export function useMeta() {
   }
 
   return {
-    activeCompetition, finishTimeQueue, isLoading, errorMessage,
+    activeCompetition, finishTimeQueue, riders, isLoading, errorMessage,
     loadInitialData, refreshQueue, triggerBlindTime, addQueueItemLocally,
     assignBlindTime, annulBlindTime, purgeQueue, handleRiderFinishedEvent
   };

@@ -267,11 +267,12 @@ export function usePartida() {
 
   const timeFormatted = computed(() => {
     const totalMs = elapsedTimeMs.value;
-    if (totalMs <= 0) return '00:00.000';
-    const minutes = Math.floor(totalMs / 60000);
+    if (totalMs <= 0) return '00:00:00.000';
+    const hours = Math.floor(totalMs / 3600000);
+    const minutes = Math.floor((totalMs % 3600000) / 60000);
     const seconds = Math.floor((totalMs % 60000) / 1000);
     const ms = Math.floor(totalMs % 1000);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
   });
 
   onBeforeUnmount(() => {

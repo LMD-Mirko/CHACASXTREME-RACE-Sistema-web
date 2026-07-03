@@ -24,9 +24,11 @@ export async function getCategories() {
  * @returns {Promise<Array>} Lista de pilotos.
  */
 export async function getRidersByCategory(categoryId) {
-  const response = await api.get('/api/riders', {
-    params: { category_id: categoryId }
-  });
+  const params = {};
+  if (categoryId) {
+    params.category_id = categoryId;
+  }
+  const response = await api.get('/api/riders', { params });
   return response.data.data;
 }
 

@@ -25,8 +25,12 @@
         <span class="telemetry-val-tech highlight-phase">{{ selectedPhase === 'practica' ? 'Prueba' : 'Final' }}</span>
       </div>
       <div class="telemetry-item">
-        <span class="telemetry-lbl">Salida de Categoría</span>
-        <span class="telemetry-val-tech highlight-time">{{ categoryStartTime }}</span>
+        <span class="telemetry-lbl">Largada</span>
+        <span class="telemetry-val-tech highlight-time">{{ formatTimeOnly(activeCompetition?.start_time) }}</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-lbl">Transcurrido</span>
+        <span class="telemetry-val-tech highlight-timer">{{ stopwatchTime }}</span>
       </div>
     </div>
 
@@ -149,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useCheckpoint } from '../hooks/useCheckpoint';
 
 defineEmits(['change-setup']);
@@ -164,6 +168,46 @@ const {
   lastCheckedRider,
   registerPass
 } = useCheckpoint();
+
+const stopwatchTime = ref('00:00:00');
+let stopwatchInterval = null;
+
+function updateStopwatch() {
+  if (!activeCompetition.value || !activeCompetition.value.start_time) {
+    stopwatchTime.value = '00:00:00';
+    return;
+  }
+  let startStr = activeCompetition.value.start_time;
+  if (!startStr.includes('T')) {
+    startStr = startStr.replace(' ', 'T') + 'Z';
+  }
+  const start = new Date(startStr).getTime();
+  const now = new Date().getTime();
+  const diff = now - start;
+  if (diff < 0) {
+    stopwatchTime.value = '00:00:00';
+    return;
+  }
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  const seconds = Math.floor((diff % 60000) / 1000);
+  stopwatchTime.value = 
+    String(hours).padStart(2, '0') + ':' +
+    String(minutes).padStart(2, '0') + ':' +
+    String(seconds).padStart(2, '0');
+}
+
+watch(() => activeCompetition.value, (newVal) => {
+  if (newVal && newVal.start_time) {
+    if (stopwatchInterval) clearInterval(stopwatchInterval);
+    updateStopwatch();
+    stopwatchInterval = setInterval(updateStopwatch, 1000);
+  }
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  if (stopwatchInterval) clearInterval(stopwatchInterval);
+});
 
 const categoryStartTime = computed(() => {
   if (!activeCompetition.value) return 'No Iniciada';
@@ -180,12 +224,25 @@ const categoryStartTime = computed(() => {
 });
 
 function formatTimeOnly(dateTimeStr) {
-  if (!dateTimeStr) return '';
-  const parts = dateTimeStr.split(' ');
-  if (parts.length > 1) {
-    return parts[1].split('.')[0];
+  if (!dateTimeStr) return 'No Iniciada';
+  try {
+    let cleanStr = String(dateTimeStr);
+    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
+      if (cleanStr.includes(' ')) {
+        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
+      } else {
+        cleanStr = cleanStr + 'Z';
+      }
+    }
+    const date = new Date(cleanStr);
+    if (isNaN(date.getTime())) return dateTimeStr;
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  } catch (e) {
+    return dateTimeStr;
   }
-  return dateTimeStr;
 }
 
 const manualPlate = ref('');

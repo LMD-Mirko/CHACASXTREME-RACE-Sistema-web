@@ -38,6 +38,11 @@ const routes = [
         component: MetaView,
       },
       {
+        path: 'confirmacion',
+        name: 'confirmacion',
+        component: () => import('../features/meta/views/MetaConfirmadorView.vue'),
+      },
+      {
         path: 'competidores',
         name: 'competidores',
         component: RidersView,
