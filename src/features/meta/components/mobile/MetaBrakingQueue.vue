@@ -47,8 +47,42 @@ const { finishTimeQueue, annulBlindTime } = useMeta();
 
 function formatTimeStr(dateStr) {
   if (!dateStr) return '';
-  const parts = dateStr.split(' ');
-  return parts.length > 1 ? parts[1] : dateStr;
+  try {
+    let cleanStr = String(dateStr).trim();
+    
+    // 1. Reemplazar espacio por 'T' para compatibilidad con Safari
+    cleanStr = cleanStr.replace(' ', 'T');
+    
+    // 2. Si no tiene 'Z' ni '+', agregar 'Z' para indicar UTC
+    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
+      cleanStr = cleanStr + 'Z';
+    }
+    
+    // 3. Truncar los microsegundos a milisegundos (máximo 3 dígitos tras el punto)
+    let parts = cleanStr.split('.');
+    if (parts.length > 1) {
+      let suffix = parts[1].includes('Z') ? 'Z' : '';
+      let dec = parts[1].replace(/[^0-9]/g, '');
+      cleanStr = parts[0] + '.' + dec.substring(0, 3) + suffix;
+    }
+    
+    const date = new Date(cleanStr);
+    if (isNaN(date.getTime())) {
+      const tPart = cleanStr.split('T')[1];
+      if (tPart) {
+        return tPart.split('.')[0].replace('Z', '');
+      }
+      return dateStr;
+    }
+    
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    const ms = date.getMilliseconds().toString().padStart(3, '0');
+    return `${hours}:${minutes}:${seconds}.${ms}`;
+  } catch (e) {
+    return dateStr;
+  }
 }
 
 function onDiscard(id) {
@@ -99,8 +133,16 @@ function onDiscard(id) {
 }
 
 .arrival-card {
-  background: var(--color-surface);
+  position: relative;
+  background-color: var(--color-surface);
+  background-image: 
+    linear-gradient(90deg, var(--color-surface) 70%, rgba(255, 94, 0, 0.04) 100%),
+    url('../../../assets/flame-fire-border-frame-silhouette-template-illustration-clipart-vector-removebg-preview.png');
+  background-position: right top;
+  background-repeat: no-repeat;
+  background-size: auto 60%;
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -108,6 +150,7 @@ function onDiscard(id) {
   align-items: center;
   box-shadow: var(--shadow-premium);
   cursor: pointer;
+  overflow: hidden;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   animation: slideIn 0.3s ease-out forwards;
   touch-action: manipulation;
@@ -116,7 +159,7 @@ function onDiscard(id) {
 
 .arrival-card:active {
   transform: scale(0.97);
-  background: var(--color-input-bg);
+  background-color: var(--color-input-bg);
 }
 
 .card-left {

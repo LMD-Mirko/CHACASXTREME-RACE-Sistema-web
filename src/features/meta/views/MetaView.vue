@@ -86,6 +86,22 @@
         @assigned="closeAssignSheet"
       />
     </div>
+
+    <!-- Toast de Notificación de Llegada en Tiempo Real -->
+    <Teleport to="body">
+      <Transition name="toast-fade">
+        <div v-if="isToastActive" class="arrival-toast-wrapper">
+          <div class="arrival-toast-card">
+            <div class="toast-glow-border"></div>
+            <span class="material-icons toast-icon">notifications_active</span>
+            <div class="toast-text-col">
+              <h5>¡Llegada Registrada!</h5>
+              <p>Marca de tiempo congelada. En espera de confirmar placa.</p>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </div>
 </template>
@@ -106,8 +122,27 @@ const {
   addQueueItemLocally,
   handleRiderFinishedEvent,
   riders,
-  activeCompetition
+  activeCompetition,
+  finishTimeQueue
 } = useMeta();
+
+const isToastActive = ref(false);
+let toastTimeout = null;
+
+function showArrivalToast() {
+  isToastActive.value = true;
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    isToastActive.value = false;
+  }, 4000);
+}
+
+watch(() => finishTimeQueue.value.length, (newVal, oldVal) => {
+  // Disparar solo cuando se añaden registros nuevos a la cola
+  if (newVal > oldVal) {
+    showArrivalToast();
+  }
+});
 
 function formatTimeOnly(dateTimeStr) {
   if (!dateTimeStr) return 'Esperando Largada';
@@ -484,5 +519,108 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
+}
+
+/* Estilos Premium del Toast de Llegada */
+.arrival-toast-wrapper {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  width: 90%;
+  max-width: 420px;
+  pointer-events: none;
+}
+
+.arrival-toast-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(15, 15, 15, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 94, 0, 0.25);
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 94, 0, 0.15);
+  color: #FFFFFF;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.toast-glow-border {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
+}
+
+.toast-icon {
+  color: var(--color-primary);
+  font-size: 28px;
+  animation: alarm-shake 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes alarm-shake {
+  0% { transform: rotate(-8deg); }
+  100% { transform: rotate(8deg); }
+}
+
+.toast-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toast-text-col h5 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.toast-text-col p {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
+/* Transición del Toast */
+.toast-fade-enter-active {
+  animation: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-fade-leave-active {
+  animation: toast-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translate(-50%, -40px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -30px);
+    opacity: 0;
+  }
 }
 </style>

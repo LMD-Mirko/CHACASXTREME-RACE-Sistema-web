@@ -222,30 +222,32 @@ function formatTimeOnly(dateTimeStr) {
 function formatTimeStr(dateStr) {
   if (!dateStr) return '';
   try {
-    let cleanStr = String(dateStr);
+    let cleanStr = String(dateStr).trim();
     
-    // Normalizar microsegundos a milisegundos (máximo 3 decimales)
+    // 1. Reemplazar espacio por 'T' para compatibilidad con Safari
+    cleanStr = cleanStr.replace(' ', 'T');
+    
+    // 2. Si no tiene 'Z' ni '+', agregar 'Z' para indicar UTC
+    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
+      cleanStr = cleanStr + 'Z';
+    }
+    
+    // 3. Truncar los microsegundos a milisegundos (máximo 3 dígitos tras el punto)
     let parts = cleanStr.split('.');
     if (parts.length > 1) {
       let suffix = parts[1].includes('Z') ? 'Z' : '';
       let dec = parts[1].replace(/[^0-9]/g, '');
       cleanStr = parts[0] + '.' + dec.substring(0, 3) + suffix;
-    } else {
-      // Si no tiene Z y tiene espacio, agregar Z para indicar UTC en parse
-      if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-        if (cleanStr.includes(' ')) {
-          cleanStr = cleanStr.replace(' ', 'T') + 'Z';
-        } else {
-          cleanStr = cleanStr + 'Z';
-        }
-      }
     }
     
     const date = new Date(cleanStr);
     if (isNaN(date.getTime())) {
-      // Fallback básico si falla el parser
-      const tPart = String(dateStr).split('T')[1] || String(dateStr).split(' ')[1];
-      return tPart ? tPart.replace('Z', '') : dateStr;
+      // Fallback robusto mediante manipulación de strings si falla Date
+      const timePart = cleanStr.split('T')[1];
+      if (timePart) {
+        return timePart.split('.')[0].replace('Z', '');
+      }
+      return dateStr;
     }
     
     const hours = date.getHours().toString().padStart(2, '0');
@@ -589,15 +591,24 @@ onBeforeUnmount(() => {
 
 /* Arrival Card */
 .arrival-card {
-  background: var(--color-input-bg);
+  position: relative;
+  background-color: var(--color-input-bg);
+  background-image: 
+    linear-gradient(90deg, var(--color-input-bg) 70%, rgba(255, 94, 0, 0.04) 100%),
+    url('../../../assets/flame-fire-border-frame-silhouette-template-illustration-clipart-vector-removebg-preview.png');
+  background-position: right top;
+  background-repeat: no-repeat;
+  background-size: auto 60%;
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
   border-radius: 12px;
   padding: 12px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .arrival-card:active {
@@ -605,8 +616,12 @@ onBeforeUnmount(() => {
 }
 
 .arrival-card--selected {
-  border-color: var(--color-primary);
-  background: rgba(255, 94, 0, 0.03);
+  border-color: var(--color-primary) !important;
+  background-color: rgba(255, 94, 0, 0.03) !important;
+  background-image: 
+    linear-gradient(90deg, rgba(255, 94, 0, 0.03) 70%, rgba(255, 94, 0, 0.08) 100%),
+    url('../../../assets/flame-fire-border-frame-silhouette-template-illustration-clipart-vector-removebg-preview.png') !important;
+  box-shadow: 0 4px 12px rgba(255, 94, 0, 0.08);
 }
 
 .card-left {

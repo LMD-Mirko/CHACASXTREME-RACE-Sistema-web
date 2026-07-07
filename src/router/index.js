@@ -74,14 +74,14 @@ const router = createRouter({
 const ROLE_DEFAULT_ROUTES = {
   PARTIDA: '/dashboard/partida',
   INTERMEDIO: '/dashboard/checkpoint',
-  META: '/dashboard/meta',
+  META: '/dashboard/confirmacion',
   ADMIN: '/dashboard/competidores',
 };
 
 const ROLE_ALLOWED_ROUTES = {
   PARTIDA: ['partida', 'categorias-explorer', 'competidores', 'posicion'],
   INTERMEDIO: ['checkpoint', 'categorias-explorer', 'competidores', 'posicion'],
-  META: ['meta', 'confirmacion', 'categorias-explorer', 'posicion'],
+  META: ['confirmacion', 'categorias-explorer', 'posicion'],
 };
 
 router.beforeEach((to, from, next) => {
