@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://tin-biz-brunette-earth.trycloudflare.com',
+  baseURL: 'https://bucks-chair-provincial-paul.trycloudflare.com/',
   timeout: 10000,
   headers: {
     'Accept': 'application/json',

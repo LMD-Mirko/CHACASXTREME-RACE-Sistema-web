@@ -77,7 +77,7 @@
               <AppButton
                 variant="primary"
                 class="btn-start-wizard"
-                @click="currentStep = 2"
+                @click="startRollCall"
                 :disabled="activeRiders.length === 0"
               >
                 <span>Iniciar Asistencia</span>
@@ -211,7 +211,8 @@ const {
   setRiderDNS,
   revertRiderDNS,
   startLaunchCountdown,
-  panicReset
+  panicReset,
+  startRollCall
 } = usePartida();
 
 const totalRidersToStart = computed(() => {

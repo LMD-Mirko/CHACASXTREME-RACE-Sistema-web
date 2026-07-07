@@ -276,8 +276,8 @@ function getMetaArrivalTime(rider) {
 const activeTab = ref('queue'); // 'queue', 'runners', or 'arrived'
 const searchQuery = ref('');
 const selectedItemForAssign = ref(null);
-
 let channel = null;
+let mountainChannel = null;
 
 const ridersInRace = computed(() => {
   return riders.value.filter(r => r.race_status === 'en_carrera');
@@ -397,8 +397,11 @@ onMounted(() => {
       loadInitialData(); // reload riders list state
     });
 
+    // Suscripción a canal de montaña
+    mountainChannel = window.Echo.channel('race-mountain');
+
     // Escucha de incidentes (DNF)
-    channel.listen('.RiderIncidentReported', () => {
+    mountainChannel.listen('.RiderIncidentReported', () => {
       loadInitialData();
     });
   }
@@ -409,7 +412,9 @@ onBeforeUnmount(() => {
   if (channel && window.Echo) {
     channel.stopListening('.TimeFreezedInMeta');
     channel.stopListening('.RiderFinished');
-    channel.stopListening('.RiderIncidentReported');
+  }
+  if (mountainChannel && window.Echo) {
+    mountainChannel.stopListening('.RiderIncidentReported');
   }
 });
 </script>
@@ -853,8 +858,4 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
 </style>

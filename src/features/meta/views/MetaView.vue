@@ -116,6 +116,7 @@ import MetaAssignModal from '../components/mobile/MetaAssignModal.vue';
 
 const isDesktop = ref(window.innerWidth >= 1024);
 const selectedItemForAssign = ref(null);
+let channel = null;
 
 const {
   loadInitialData,
@@ -279,10 +280,9 @@ onMounted(() => {
       handleRiderFinishedEvent(e.exact_time);
       loadInitialData(); // reload riders list to update statuses in columns
     });
+
   }
 });
-
-let channel = null;
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkViewport);
@@ -623,4 +623,5 @@ onBeforeUnmount(() => {
     opacity: 0;
   }
 }
+
 </style>

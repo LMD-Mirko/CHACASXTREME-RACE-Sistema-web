@@ -69,6 +69,7 @@ const {
 } = useCheckpoint();
 
 let channel = null;
+let mountainChannel = null;
 let pollInterval = null;
 
 function startPolling() {
@@ -103,19 +104,22 @@ onMounted(() => {
   if (window.Echo) {
     channel = window.Echo.channel('race-timing');
     
-    // Si un corredor se retira en otro punto, actualizar estado
-    channel.listen('.RiderIncidentReported', (e) => {
-      const idx = riders.value.findIndex(r => r.id === e.rider_id);
-      if (idx !== -1) riders.value[idx].race_status = 'DNF';
-    });
-
     // Recargar lista si se aplican correcciones manuales
     channel.listen('.CorrectionsApplied', () => {
       loadRiders();
     });
 
+    // Suscripción a canal de montaña para incidentes y largadas
+    mountainChannel = window.Echo.channel('race-mountain');
+
+    // Si un corredor se retira en otro punto, actualizar estado
+    mountainChannel.listen('.RiderIncidentReported', (e) => {
+      const idx = riders.value.findIndex(r => r.id === e.rider_id);
+      if (idx !== -1) riders.value[idx].race_status = 'DNF';
+    });
+
     // Si se da la largada en el Punto de Partida, activar inmediatamente
-    channel.listen('.CategoryMangaStarted', () => {
+    mountainChannel.listen('.CategoryMangaStarted', () => {
       loadInitialData();
     });
   }
@@ -124,9 +128,11 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopPolling();
   if (channel && window.Echo) {
-    channel.stopListening('.RiderIncidentReported');
     channel.stopListening('.CorrectionsApplied');
-    channel.stopListening('.CategoryMangaStarted');
+  }
+  if (mountainChannel && window.Echo) {
+    mountainChannel.stopListening('.RiderIncidentReported');
+    mountainChannel.stopListening('.CategoryMangaStarted');
   }
 });
 </script>

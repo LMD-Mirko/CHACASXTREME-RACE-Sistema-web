@@ -1,7 +1,8 @@
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import {
   getActiveCompetition, getCategories, getRidersByCategory,
-  triggerCategoryStart, resetCategoryStart, closeDeparture, updateRiderStatus
+  triggerCategoryStart, resetCategoryStart, closeDeparture, updateRiderStatus,
+  notifyRollCallStart
 } from '../services/partidaService';
 
 const activeCompetition = ref(null);
@@ -134,6 +135,18 @@ export function usePartida() {
       errorMessage.value = error.friendlyMessage || 'Error al cargar los pilotos.';
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  async function startRollCall() {
+    currentStep.value = 2;
+    try {
+      await notifyRollCallStart({
+        category_id: selectedCategoryId.value,
+        phase: selectedPhase.value
+      });
+    } catch (error) {
+      console.error('Error al notificar inicio de pase de lista:', error);
     }
   }
 
@@ -289,6 +302,6 @@ export function usePartida() {
     presentRiderIds, lastCheckedRider, showCheckModal, allActiveRidersPresent, timeFormatted,
     currentStep, isSyncingRiders,
     loadInitialData, loadRiders, toggleRiderPresence, setRiderDNS, revertRiderDNS,
-    startLaunchCountdown, panicReset
+    startLaunchCountdown, panicReset, startRollCall
   };
 }
