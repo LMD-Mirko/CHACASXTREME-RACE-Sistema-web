@@ -15,16 +15,21 @@
             class="pass-item"
             :class="{ 'pass-item--offline': pass.isOffline }"
           >
-            <div class="pass-badge">
-              <span class="plate-num">#{{ pass.plate_number }}</span>
-              <span class="time-lbl">{{ formatTime(pass.exact_time) }}</span>
+            <!-- Badge compacto con solo el número de placa -->
+            <div class="pass-plate-badge">
+              #{{ pass.plate_number }}
             </div>
             
-            <div class="pass-name-col">
+            <!-- Columna de información y metadatos -->
+            <div class="pass-info-col">
               <span class="rider-name">{{ pass.full_name }}</span>
-              <span class="sync-status-lbl" :class="{ 'status-offline': pass.isOffline }">
-                {{ pass.isOffline ? 'Offline' : 'Sincronizado' }}
-              </span>
+              <div class="pass-meta-row">
+                <span class="time-lbl text-mono">{{ formatTime(pass.exact_time) }}</span>
+                <span class="bullet-separator">•</span>
+                <span class="sync-status-lbl" :class="{ 'status-offline': pass.isOffline }">
+                  {{ pass.isOffline ? 'Offline' : 'Sincronizado' }}
+                </span>
+              </div>
             </div>
             
             <div class="pass-actions">
@@ -237,40 +242,31 @@ function onRevert(riderId) {
   border-left: 3px solid var(--color-secondary);
 }
 
-.pass-badge {
+.pass-plate-badge {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  justify-content: center;
+  background: rgba(255, 94, 0, 0.08);
+  border: 1.5px solid var(--color-primary);
   border-radius: 8px;
-  padding: 4px 8px;
-  min-width: 64px;
-}
-
-.plate-num {
+  padding: 6px 10px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 900;
   color: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.time-lbl {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-}
-
-.pass-name-col {
+.pass-info-col {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 2px;
+  gap: 3px;
 }
 
 .rider-name {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -279,12 +275,31 @@ function onRevert(riderId) {
   text-transform: uppercase;
 }
 
-.sync-status-lbl {
-  font-size: 10px;
-  color: var(--color-success);
+.pass-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.time-lbl {
+  font-size: 10.5px;
   font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.bullet-separator {
+  color: var(--color-border);
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.sync-status-lbl {
+  font-size: 9px;
+  color: var(--color-success);
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .sync-status-lbl.status-offline {
@@ -508,12 +523,9 @@ function onRevert(riderId) {
     padding: 10px;
     gap: 8px;
   }
-  .pass-badge {
-    min-width: 54px;
-    padding: 2px 4px;
-  }
-  .plate-num {
-    font-size: 12.5px;
+  .pass-plate-badge {
+    font-size: 12px;
+    padding: 4px 8px;
   }
   .rider-name {
     font-size: 12.5px;
