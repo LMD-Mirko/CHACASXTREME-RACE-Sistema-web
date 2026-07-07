@@ -48,6 +48,11 @@ const routes = [
         component: RidersView,
       },
       {
+        path: 'posicion',
+        name: 'posicion',
+        component: () => import('../features/classification/views/ClassificationView.vue'),
+      },
+      {
         path: 'configuracion',
         name: 'configuracion',
         component: () => import('../features/configuracion/views/ConfiguracionView.vue'),
@@ -74,9 +79,9 @@ const ROLE_DEFAULT_ROUTES = {
 };
 
 const ROLE_ALLOWED_ROUTES = {
-  PARTIDA: ['partida', 'categorias-explorer', 'competidores'],
-  INTERMEDIO: ['checkpoint', 'categorias-explorer', 'competidores'],
-  META: ['meta', 'confirmacion', 'categorias-explorer'],
+  PARTIDA: ['partida', 'categorias-explorer', 'competidores', 'posicion'],
+  INTERMEDIO: ['checkpoint', 'categorias-explorer', 'competidores', 'posicion'],
+  META: ['meta', 'confirmacion', 'categorias-explorer', 'posicion'],
 };
 
 router.beforeEach((to, from, next) => {

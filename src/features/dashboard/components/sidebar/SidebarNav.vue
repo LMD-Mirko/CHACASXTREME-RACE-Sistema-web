@@ -36,7 +36,7 @@ const allItems = {
   confirmacion: { name: 'confirmacion',        path: '/dashboard/confirmacion',        icon: 'assignment_turned_in', label: 'Confirmación' },
   competidores: { name: 'competidores',        path: '/dashboard/competidores',        icon: 'group',         label: 'Competidores' },
   configuracion: { name: 'configuracion',       path: '/dashboard/configuracion',       icon: 'settings',      label: 'Configuración' },
-  posicion:     { name: 'posicion',            path: '#',                              icon: 'sports_score',  label: 'Posición', disabled: true },
+  posicion:     { name: 'posicion',            path: '/dashboard/posicion',            icon: 'sports_score',  label: 'Posición' },
 };
 
 const filteredNavItems = computed(() => {
@@ -56,6 +56,7 @@ const filteredNavItems = computed(() => {
     allItems.confirmacion,
     allItems.categorias,
     allItems.competidores,
+    allItems.posicion,
     allItems.configuracion
   ];
 });

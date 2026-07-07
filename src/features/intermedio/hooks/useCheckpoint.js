@@ -76,8 +76,45 @@ export function useCheckpoint() {
     }
   }
 
+  // Helper to check if a rider has passed the current checkpoint in the active phase
+  function hasRiderPassed(rider) {
+    if (!rider || !rider.checkpoint_passes) return false;
+    return rider.checkpoint_passes.some(p => 
+      p.checkpoint_name.toUpperCase() === checkpointName.value.toUpperCase() &&
+      p.phase === selectedPhase.value
+    );
+  }
+
+  const ridersAll = computed(() => {
+    return riders.value.filter(r => {
+      const matchesSearch = searchQuery.value.trim() === '' ||
+        r.plate_number.toString().includes(searchQuery.value) ||
+        r.full_name.toLowerCase().includes(searchQuery.value.toLowerCase());
+      return matchesSearch && r.race_status === 'en_carrera';
+    });
+  });
+
+  const ridersPending = computed(() => {
+    return ridersAll.value.filter(r => !hasRiderPassed(r));
+  });
+
+  const ridersArrived = computed(() => {
+    return ridersAll.value.filter(r => hasRiderPassed(r));
+  });
+
   function getFormattedCurrentTime() {
-    return new Date().toISOString().replace('T', ' ').substring(0, 23);
+    const d = new Date();
+    const pad = (num, size) => String(num).padStart(size, '0');
+    
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1, 2);
+    const day = pad(d.getDate(), 2);
+    const hours = pad(d.getHours(), 2);
+    const minutes = pad(d.getMinutes(), 2);
+    const seconds = pad(d.getSeconds(), 2);
+    const ms = pad(d.getMilliseconds(), 3);
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
   }
 
   async function registerPass(plateNumber) {
@@ -95,6 +132,25 @@ export function useCheckpoint() {
       phase: selectedPhase.value,
       exact_time: timeStr
     };
+
+    // Agregar localmente el pase al competidor para reactividad inmediata en la UI
+    if (rider) {
+      if (!rider.checkpoint_passes) {
+        rider.checkpoint_passes = [];
+      }
+      // Evitar duplicados locales
+      const alreadyHas = rider.checkpoint_passes.some(p => 
+        p.checkpoint_name.toUpperCase() === checkpointName.value.toUpperCase() &&
+        p.phase === selectedPhase.value
+      );
+      if (!alreadyHas) {
+        rider.checkpoint_passes.push({
+          checkpoint_name: checkpointName.value,
+          phase: selectedPhase.value,
+          exact_time: timeStr
+        });
+      }
+    }
 
     if (isOnline.value) {
       await registerPassOnline(passData, rider);
@@ -218,7 +274,7 @@ export function useCheckpoint() {
   return {
     checkpointName, activeCompetition, selectedPhase, riders, hasStart,
     searchQuery, offlinePasses, historyPasses, showCheckModal, lastCheckedRider,
-    isLoading, errorMessage, isOnline, ridersInRace,
+    isLoading, errorMessage, isOnline, ridersInRace, ridersAll, ridersPending, ridersArrived,
     loadInitialData, loadRiders, registerPass, syncOfflineQueue,
     retireRiderDNF, revertRiderDNF, editPassPlate, deletePassRecord
   };

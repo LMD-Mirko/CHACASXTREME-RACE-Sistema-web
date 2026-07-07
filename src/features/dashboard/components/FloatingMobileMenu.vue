@@ -1,5 +1,8 @@
 <template>
-  <div class="floating-menu-container">
+  <div 
+    class="floating-menu-container"
+    :class="{ 'floating-menu-container--hidden': isKeyboardOpen }"
+  >
     <nav class="floating-menu-bar">
       <template v-for="item in menuItems" :key="item.name">
         <!-- Item Normal -->
@@ -40,12 +43,57 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useAuth } from '../../login/hooks/useAuth';
 
 const { currentUser } = useAuth();
 const toastMessage = ref('');
+const isKeyboardOpen = ref(false);
 let toastTimeout = null;
+let initialHeight = window.innerHeight;
+
+// Detectar teclado abierto mediante foco en inputs
+function handleFocusIn(e) {
+  const target = e.target;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+    isKeyboardOpen.value = true;
+  }
+}
+
+function handleFocusOut() {
+  // Pequeño timeout para evitar rebotes visuales rápidos
+  setTimeout(() => {
+    const activeEl = document.activeElement;
+    if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
+      isKeyboardOpen.value = false;
+    }
+  }, 100);
+}
+
+// Respaldo para detectar si el viewport cambia de tamaño (característico de Android al abrir teclado)
+function handleResize() {
+  if (window.innerHeight < initialHeight - 120) {
+    isKeyboardOpen.value = true;
+  } else {
+    // Si regresa a tamaño completo
+    if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      isKeyboardOpen.value = false;
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('focusin', handleFocusIn);
+  window.addEventListener('focusout', handleFocusOut);
+  window.addEventListener('resize', handleResize);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focusin', handleFocusIn);
+  window.removeEventListener('focusout', handleFocusOut);
+  window.removeEventListener('resize', handleResize);
+  if (toastTimeout) clearTimeout(toastTimeout);
+});
 
 const role = computed(() => currentUser.value?.role?.toUpperCase() || '');
 
@@ -54,7 +102,7 @@ const menuItems = computed(() => {
     partida: { name: 'partida', path: '/dashboard/partida', icon: 'flag', label: 'Partida' },
     categorias: { name: 'categorias', path: '/dashboard/categorias-explorer', icon: 'grid_view', label: 'Categorías' },
     competidores: { name: 'competidores', path: '/dashboard/competidores', icon: 'group', label: 'Corredores' },
-    posicion: { name: 'posicion', path: '#', icon: 'sports_score', label: 'Posición', disabled: true },
+    posicion: { name: 'posicion', path: '/dashboard/posicion', icon: 'sports_score', label: 'Posición' },
     checkpoint: { name: 'checkpoint', path: '/dashboard/checkpoint', icon: 'location_on', label: 'Checkpoint' },
     meta: { name: 'meta', path: '/dashboard/meta', icon: 'emoji_events', label: 'Meta' },
     confirmacion: { name: 'confirmacion', path: '/dashboard/confirmacion', icon: 'assignment_turned_in', label: 'Confirmar' }
@@ -74,7 +122,8 @@ const menuItems = computed(() => {
     allItems.checkpoint,
     allItems.meta,
     allItems.categorias,
-    allItems.competidores
+    allItems.competidores,
+    allItems.posicion
   ];
 });
 
@@ -98,6 +147,14 @@ function showComingSoonAlert(label) {
   max-width: 420px;
   z-index: 999;
   pointer-events: none; /* Deja pasar clicks fuera del menú */
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+}
+
+/* Ocultar el menú deslizándose hacia abajo cuando el teclado está abierto */
+.floating-menu-container--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 100px) scale(0.95);
 }
 
 /* Barra con efecto glassmorphic ultra premium */
@@ -106,25 +163,14 @@ function showComingSoonAlert(label) {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--color-floating-menu-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--color-floating-menu-border);
   border-radius: 24px;
   padding: 10px 14px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 
-              0 1px 3px rgba(0, 0, 0, 0.02),
-              inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
-}
-
-/* Soporte para Tema Oscuro */
-:global(.dark-theme) .floating-menu-bar {
-  background: rgba(20, 20, 22, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 
-              0 1px 3px rgba(0, 0, 0, 0.1),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: var(--color-floating-menu-shadow);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Botones / Enlaces del menú */
