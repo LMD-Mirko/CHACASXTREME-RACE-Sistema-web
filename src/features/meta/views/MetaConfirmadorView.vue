@@ -169,12 +169,14 @@
     </div>
 
     <!-- Bottom Sheet Modal de Asignación -->
-    <MetaAssignModal
-      v-if="selectedItemForAssign"
-      :queue-item="selectedItemForAssign"
-      @close="closeAssignSheet"
-      @assigned="onAssignedComplete"
-    />
+    <Teleport to="body">
+      <MetaAssignModal
+        v-if="selectedItemForAssign"
+        :queue-item="selectedItemForAssign"
+        @close="closeAssignSheet"
+        @assigned="onAssignedComplete"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -221,19 +223,36 @@ function formatTimeStr(dateStr) {
   if (!dateStr) return '';
   try {
     let cleanStr = String(dateStr);
-    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-      if (cleanStr.includes(' ')) {
-        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
-      } else {
-        cleanStr = cleanStr + 'Z';
+    
+    // Normalizar microsegundos a milisegundos (máximo 3 decimales)
+    let parts = cleanStr.split('.');
+    if (parts.length > 1) {
+      let suffix = parts[1].includes('Z') ? 'Z' : '';
+      let dec = parts[1].replace(/[^0-9]/g, '');
+      cleanStr = parts[0] + '.' + dec.substring(0, 3) + suffix;
+    } else {
+      // Si no tiene Z y tiene espacio, agregar Z para indicar UTC en parse
+      if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
+        if (cleanStr.includes(' ')) {
+          cleanStr = cleanStr.replace(' ', 'T') + 'Z';
+        } else {
+          cleanStr = cleanStr + 'Z';
+        }
       }
     }
+    
     const date = new Date(cleanStr);
-    if (isNaN(date.getTime())) return dateStr;
+    if (isNaN(date.getTime())) {
+      // Fallback básico si falla el parser
+      const tPart = String(dateStr).split('T')[1] || String(dateStr).split(' ')[1];
+      return tPart ? tPart.replace('Z', '') : dateStr;
+    }
+    
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
+    const ms = date.getMilliseconds().toString().padStart(3, '0');
+    return `${hours}:${minutes}:${seconds}.${ms}`;
   } catch (e) {
     return dateStr;
   }
