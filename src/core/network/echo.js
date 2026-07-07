@@ -4,12 +4,27 @@ import Pusher from 'pusher-js';
 window.Pusher = Pusher;
 
 // Inicialización global de Laravel Echo para comunicación en tiempo real
+// --- MODO LOCAL ---
 window.Echo = new Echo({
   broadcaster: 'reverb',
-  key: import.meta.env.VITE_REVERB_APP_KEY || 'reverb_app_key', // Valor por defecto del backend
-  wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname || '127.0.0.1',
-  wsPort: import.meta.env.VITE_REVERB_PORT ? parseInt(import.meta.env.VITE_REVERB_PORT) : 8080,
-  wssPort: import.meta.env.VITE_REVERB_PORT ? parseInt(import.meta.env.VITE_REVERB_PORT) : 8080,
-  forceTLS: (import.meta.env.VITE_REVERB_SCHEME || 'http') === 'https',
+  key: 'uqehdqpxmzpvlro4kocd',
+  wsHost: '127.0.0.1',
+  wsPort: 8080,
+  wssPort: 8080,
+  forceTLS: false,
   enabledTransports: ['ws', 'wss'],
 });
+
+// --- MODO TÚNEL CLOUDFLARE (Activar cuando uses un túnel para el WebSocket) ---
+/*
+window.Echo = new Echo({
+  broadcaster: 'reverb',
+  key: 'uqehdqpxmzpvlro4kocd',
+  wsHost: 'tu-tunel-websocket.trycloudflare.com', // Reemplazar por la URL del túnel del WebSocket (sin https://)
+  wsPort: 443,
+  wssPort: 443,
+  forceTLS: true,
+  enabledTransports: ['ws', 'wss'],
+});
+*/
+

@@ -24,15 +24,15 @@ export function useAuth() {
       const data = await loginRequest(username, password);
       
       localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user_role', data.role);
+      localStorage.setItem('user_role', data.data.role);
       
       token.value = data.token;
       user.value = {
-        id: data.id ?? 1,
-        name: data.name,
-        username: data.username,
-        email: data.email,
-        role: data.role,
+        id: data.data.id,
+        name: data.data.name,
+        username: data.data.username,
+        email: data.data.email,
+        role: data.data.role,
       };
       
       return true;

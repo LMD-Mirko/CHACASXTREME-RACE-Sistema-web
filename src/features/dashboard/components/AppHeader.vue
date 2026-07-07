@@ -3,6 +3,7 @@
     <!-- Lado izquierdo: Botón menú hamburguesa (móvil) y Título (sección activa) -->
     <div class="header-left">
       <button
+        v-if="showHamburger"
         class="btn-hamburger"
         @click="$emit('toggle-sidebar')"
         aria-label="Abrir menú de navegación"
@@ -34,6 +35,13 @@ import HeaderClock from './header/HeaderClock.vue';
 import HeaderThemeToggle from './header/HeaderThemeToggle.vue';
 import HeaderUserAvatar from './header/HeaderUserAvatar.vue';
 import { useRiders } from '../../competidores/composables/useRiders';
+
+defineProps({
+  showHamburger: {
+    type: Boolean,
+    default: true
+  }
+});
 
 defineEmits(['toggle-sidebar']);
 

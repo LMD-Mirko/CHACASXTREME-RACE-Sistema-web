@@ -1,6 +1,6 @@
 <template>
   <div class="scanner-container fade-in">
-    <!-- Fila Superior: Info del Checkpoint y reconfiguración -->
+    <!-- Fila Superior: Info del Checkpoint -->
     <div class="checkpoint-info-row">
       <div class="checkpoint-badge">
         <span class="material-icons badge-icon">room</span>
@@ -8,10 +8,6 @@
         <span class="badge-separator">•</span>
         <span class="badge-phase">{{ selectedPhase === 'practica' ? 'PRUEBA' : 'FINAL' }}</span>
       </div>
-      <button class="btn-reconfigure" @click="$emit('change-setup')">
-        <span class="material-icons">settings</span>
-        <span>Cambiar Punto</span>
-      </button>
     </div>
 
     <!-- Live Telemetry Status Bar -->

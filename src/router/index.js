@@ -56,7 +56,8 @@ const routes = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/login',
+    name: 'not-found',
+    component: LoginView,
   },
 ];
 
@@ -65,19 +66,80 @@ const router = createRouter({
   routes,
 });
 
+const ROLE_DEFAULT_ROUTES = {
+  PARTIDA: '/dashboard/partida',
+  INTERMEDIO: '/dashboard/checkpoint',
+  META: '/dashboard/meta',
+  ADMIN: '/dashboard/competidores',
+};
+
+const ROLE_ALLOWED_ROUTES = {
+  PARTIDA: ['partida', 'categorias-explorer', 'competidores'],
+  INTERMEDIO: ['checkpoint', 'categorias-explorer', 'competidores'],
+  META: ['meta', 'confirmacion', 'categorias-explorer'],
+};
+
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('auth_token');
-  const role = localStorage.getItem('user_role');
+  const role = localStorage.getItem('user_role')?.toUpperCase();
   
-  if (to.name !== 'login' && !token) {
-    next({ name: 'login' });
-  } else if (to.name === 'login' && token) {
-    next({ name: 'dashboard' });
-  } else if (to.meta.requiresAdmin && role !== 'ADMIN') {
-    next({ name: 'competidores' });
-  } else {
-    next();
+  console.log(`[Router Guard] Navigating from "${from.path}" to "${to.path}" (Name: "${to.name}"). Token: ${!!token}, Role: ${role}`);
+  
+  // 1. Si no está autenticado y no va a login, redirigir a login
+  if (!token) {
+    if (to.name !== 'login') {
+      console.log(`[Router Guard] Redirecting to login (unauthenticated)`);
+      next({ name: 'login' });
+    } else {
+      next();
+    }
+    return;
   }
+
+  // Validar si el rol es válido (previene bucles si el localStorage tiene la cadena "undefined")
+  const validRoles = ['ADMIN', 'PARTIDA', 'INTERMEDIO', 'META'];
+  if (!role || !validRoles.includes(role)) {
+    console.log(`[Router Guard] Invalid or undefined role ("${role}"). Clearing session and redirecting to login.`);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_role');
+    if (to.name !== 'login') {
+      next({ name: 'login' });
+    } else {
+      next();
+    }
+    return;
+  }
+  
+  // 2. Si está autenticado e intenta ir a la raíz "/" o al login "/login", redirigir directamente a su ruta
+  if (to.path === '/' || to.name === 'login' || to.name === 'not-found') {
+    const targetPath = ROLE_DEFAULT_ROUTES[role] || '/dashboard/competidores';
+    console.log(`[Router Guard] Authenticated redirect to: ${targetPath}`);
+    next({ path: targetPath });
+    return;
+  }
+  
+  // 3. Control de acceso por Roles (excluyendo a ADMIN)
+  if (role && role !== 'ADMIN') {
+    const defaultPath = ROLE_DEFAULT_ROUTES[role] || '/dashboard/competidores';
+    
+    // Si intenta ir a la raíz del dashboard
+    if (to.path === '/dashboard' || to.path === '/dashboard/') {
+      console.log(`[Router Guard] Redirecting dashboard root to default: ${defaultPath}`);
+      next({ path: defaultPath });
+      return;
+    }
+    
+    // Verificar si el nombre de la ruta está en la lista de permitidos
+    const allowed = ROLE_ALLOWED_ROUTES[role] || [];
+    if (to.name && to.name !== 'dashboard' && !allowed.includes(to.name)) {
+      console.log(`[Router Guard] Route "${to.name}" not allowed for role ${role}. Redirecting to ${defaultPath}`);
+      next({ path: defaultPath });
+      return;
+    }
+  }
+
+  console.log(`[Router Guard] Navigation allowed: ${to.path}`);
+  next();
 });
 
 export default router;

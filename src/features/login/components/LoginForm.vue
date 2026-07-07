@@ -98,7 +98,16 @@ const submitLogin = async () => {
       localStorage.removeItem('saved_username');
       localStorage.removeItem('saved_password');
     }
-    router.push('/dashboard/partida');
+    const role = localStorage.getItem('user_role')?.toUpperCase();
+    if (role === 'PARTIDA') {
+      router.push('/dashboard/partida');
+    } else if (role === 'INTERMEDIO') {
+      router.push('/dashboard/checkpoint');
+    } else if (role === 'META') {
+      router.push('/dashboard/meta');
+    } else {
+      router.push('/dashboard/competidores');
+    }
   }
 };
 </script>

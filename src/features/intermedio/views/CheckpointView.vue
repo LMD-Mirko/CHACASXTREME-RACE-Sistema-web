@@ -1,16 +1,10 @@
 <template>
   <div class="checkpoint-view-root">
-    <!-- Pantalla de Configuración Inicial -->
-    <CheckpointSetup
-      v-if="!isSetupComplete"
-      @setup-complete="onSetupComplete"
-    />
-
     <!-- Interfaz de Operación Principal -->
-    <div v-else class="operation-layout fade-in">
+    <div class="operation-layout fade-in">
       <!-- Caso A: Ya hay largada iniciada -->
       <div v-if="hasStart" class="operation-active-view">
-        <CheckpointScanner @change-setup="isSetupComplete = false" />
+        <CheckpointScanner />
         <CheckpointHistory />
         <CheckpointOfflineStatus />
       </div>
@@ -49,10 +43,6 @@
               <span class="material-icons" :class="{ 'rotating': isLoading }">sync</span>
               <span>{{ isLoading ? 'Comprobando...' : 'Recomprobar Estado' }}</span>
             </button>
-            <button class="btn-change-setup-waiting" @click="isSetupComplete = false">
-              <span class="material-icons">settings</span>
-              <span>Cambiar Punto</span>
-            </button>
           </div>
         </div>
       </div>
@@ -63,12 +53,9 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useCheckpoint } from '../hooks/useCheckpoint';
-import CheckpointSetup from '../components/CheckpointSetup.vue';
 import CheckpointScanner from '../components/CheckpointScanner.vue';
 import CheckpointHistory from '../components/CheckpointHistory.vue';
 import CheckpointOfflineStatus from '../components/CheckpointOfflineStatus.vue';
-
-const isSetupComplete = ref(true);
 
 const {
   checkpointName,
@@ -84,15 +71,10 @@ const {
 let channel = null;
 let pollInterval = null;
 
-function onSetupComplete() {
-  isSetupComplete.value = true;
-  loadInitialData();
-}
-
 function startPolling() {
   stopPolling();
   pollInterval = setInterval(() => {
-    if (isSetupComplete.value && !hasStart.value) {
+    if (!hasStart.value) {
       loadInitialData();
     }
   }, 6000); // Polling every 6 seconds as backup
@@ -105,14 +87,14 @@ function stopPolling() {
   }
 }
 
-// React to setup completion and hasStart flag to handle polling
-watch([isSetupComplete, hasStart], ([setup, started]) => {
-  if (setup && !started) {
+// React to hasStart flag to handle polling
+watch(hasStart, (started) => {
+  if (!started) {
     startPolling();
   } else {
     stopPolling();
   }
-});
+}, { immediate: true });
 
 onMounted(() => {
   loadInitialData();
