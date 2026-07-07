@@ -446,11 +446,19 @@ function onRevert(riderId) {
   border-radius: 10px;
 }
 
+.dnf-info {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
 .dnf-plate {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 900;
   color: var(--color-error);
   margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .dnf-name {
@@ -458,6 +466,9 @@ function onRevert(riderId) {
   font-weight: 700;
   color: var(--color-text-primary);
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn-revert-dnf {
@@ -476,5 +487,36 @@ function onRevert(riderId) {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: rgba(255, 94, 0, 0.02);
+}
+
+@media (max-width: 580px) {
+  .card {
+    padding: 14px;
+  }
+  .dnf-input-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .select-wrapper {
+    width: 100%;
+  }
+  .btn-dnf-retire {
+    width: 100%;
+  }
+  .pass-item {
+    padding: 10px;
+    gap: 8px;
+  }
+  .pass-badge {
+    min-width: 54px;
+    padding: 2px 4px;
+  }
+  .plate-num {
+    font-size: 12.5px;
+  }
+  .rider-name {
+    font-size: 12.5px;
+  }
 }
 </style>

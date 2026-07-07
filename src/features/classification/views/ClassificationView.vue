@@ -703,31 +703,9 @@ function statusClass(status) {
   font-size: 12px;
 }
 
-/* Rows styles for podium and DNF/DNS */
-.row-podium-1 {
-  background-image: 
-    linear-gradient(90deg, var(--color-surface) 75%, rgba(251, 191, 36, 0.09) 100%),
-    url('../../../assets/flame-fire-border-frame-silhouette-template-illustration-clipart-vector-removebg-preview.png') !important;
-  background-position: right top;
-  background-repeat: no-repeat;
-  background-size: auto 65%;
-}
-.row-podium-2 {
-  background-image: 
-    linear-gradient(90deg, var(--color-surface) 75%, rgba(156, 163, 175, 0.07) 100%),
-    url('../../../assets/flame-fire-border-frame-silhouette-template-illustration-clipart-vector-removebg-preview.png') !important;
-  background-position: right top;
-  background-repeat: no-repeat;
-  background-size: auto 65%;
-}
-.row-podium-3 {
-  background-image: 
-    linear-gradient(90deg, var(--color-surface) 75%, rgba(217, 119, 6, 0.07) 100%),
-    url('../../../assets/flame-fire-border-frame-silhouette-template-illustration-clipart-vector-removebg-preview.png') !important;
-  background-position: right top;
-  background-repeat: no-repeat;
-  background-size: auto 65%;
-}
+.row-podium-1 { background: rgba(251, 191, 36, 0.015); }
+.row-podium-2 { background: rgba(156, 163, 175, 0.008); }
+.row-podium-3 { background: rgba(217, 119, 6, 0.008); }
 .row-dnf { opacity: 0.65; background: rgba(239, 68, 68, 0.005); }
 .row-dns { opacity: 0.55; }
 
