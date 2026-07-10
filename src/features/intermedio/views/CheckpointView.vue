@@ -97,43 +97,43 @@ watch(hasStart, (started) => {
   }
 }, { immediate: true });
 
+const handlePassedCheckpoint = () => {
+  loadRiders();
+};
+
+const handleRiderIncident = (e) => {
+  const incident = e.detail;
+  const idx = riders.value.findIndex(r => r.id === incident.rider_id);
+  if (idx !== -1) riders.value[idx].race_status = 'DNF';
+};
+
+const handleMangaStarted = () => {
+  loadInitialData();
+};
+
+const handleRaceReset = () => {
+  loadInitialData();
+};
+
 onMounted(() => {
   loadInitialData();
   
-  // Suscripción a WebSockets para actualizaciones reactivas
-  if (window.Echo) {
-    channel = window.Echo.channel('race-timing');
-    
-    // Recargar lista si se aplican correcciones manuales
-    channel.listen('.CorrectionsApplied', () => {
-      loadRiders();
-    });
-
-    // Suscripción a canal de montaña para incidentes y largadas
-    mountainChannel = window.Echo.channel('race-mountain');
-
-    // Si un corredor se retira en otro punto, actualizar estado
-    mountainChannel.listen('.RiderIncidentReported', (e) => {
-      const idx = riders.value.findIndex(r => r.id === e.rider_id);
-      if (idx !== -1) riders.value[idx].race_status = 'DNF';
-    });
-
-    // Si se da la largada en el Punto de Partida, activar inmediatamente
-    mountainChannel.listen('.CategoryMangaStarted', () => {
-      loadInitialData();
-    });
-  }
+  window.addEventListener('rider-passed-checkpoint', handlePassedCheckpoint);
+  window.addEventListener('rider-finished', handlePassedCheckpoint);
+  window.addEventListener('rider-incident-reported', handleRiderIncident);
+  window.addEventListener('category-manga-started', handleMangaStarted);
+  window.addEventListener('corrections-applied', handlePassedCheckpoint);
+  window.addEventListener('race-reset', handleRaceReset);
 });
 
 onBeforeUnmount(() => {
   stopPolling();
-  if (channel && window.Echo) {
-    channel.stopListening('.CorrectionsApplied');
-  }
-  if (mountainChannel && window.Echo) {
-    mountainChannel.stopListening('.RiderIncidentReported');
-    mountainChannel.stopListening('.CategoryMangaStarted');
-  }
+  window.removeEventListener('rider-passed-checkpoint', handlePassedCheckpoint);
+  window.removeEventListener('rider-finished', handlePassedCheckpoint);
+  window.removeEventListener('rider-incident-reported', handleRiderIncident);
+  window.removeEventListener('category-manga-started', handleMangaStarted);
+  window.removeEventListener('corrections-applied', handlePassedCheckpoint);
+  window.removeEventListener('race-reset', handleRaceReset);
 });
 </script>
 

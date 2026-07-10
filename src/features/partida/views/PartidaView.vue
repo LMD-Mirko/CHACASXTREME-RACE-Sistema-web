@@ -1,18 +1,24 @@
 <template>
   <div class="view-container">
     <div class="partida-view-layout">
-      <!-- Estados de carga y error iniciales -->
+      <!-- Estados de carga iniciales -->
       <div v-if="isLoading && riders.length === 0" class="loading-state">
         <span class="material-icons rotating">sync</span>
         <span>Sincronizando datos de grilla...</span>
       </div>
-      <div v-else-if="errorMessage" class="error-banner">
-        <span class="material-icons">error_outline</span>
-        <span>{{ errorMessage }}</span>
-      </div>
 
       <!-- Asistente de Largada Paso a Paso -->
       <div v-else class="partida-body-section">
+        <!-- Banner de Error Desvanecible / Dismissible en la parte superior -->
+        <Transition name="fade">
+          <div v-if="errorMessage" class="error-banner">
+            <span class="material-icons">error_outline</span>
+            <span class="error-message-text">{{ errorMessage }}</span>
+            <button class="btn-clear-error" @click="errorMessage = ''">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+        </Transition>
         
         <!-- PASO 1: CONFIGURACIÓN -->
         <div v-if="currentStep === 1" class="setup-step-container fade-in">
@@ -131,7 +137,42 @@
 
         <!-- PASO 3: CARRERA ACTIVA (STOPWATCH) -->
         <div v-else-if="currentStep === 3" class="active-race-step-container fade-in">
+          
+          <!-- Si la competencia está terminada, mostrar vista de éxito explicativa -->
+          <div v-if="isMangaCompleted" class="race-completed-wizard-card">
+            <div class="glow-header-success-manga"></div>
+            
+            <div class="completed-manga-body">
+              <div class="checkmark-manga-circle animate-pulse-success">
+                <span class="material-icons">emoji_events</span>
+              </div>
+              
+              <h2>Competencia Terminada</h2>
+              <p class="completed-manga-desc">Todos los pilotos confirmados han cruzado la línea de meta y sus tiempos están registrados.</p>
+              
+              <div class="manga-stats-summary-sport">
+                <div class="manga-stat-item-sport">
+                  <span class="stat-lbl-sport">Tiempo Final Transcurrido</span>
+                  <strong class="stat-val-sport">{{ timeFormatted }}</strong>
+                </div>
+                <div class="manga-stat-item-sport">
+                  <span class="stat-lbl-sport">Pilotos en Meta</span>
+                  <strong class="stat-val-sport">{{ arrivedRidersCount }} / {{ activeRiders.length }}</strong>
+                </div>
+              </div>
+              
+              <div class="completed-manga-actions">
+                <button class="btn-manga-finish" @click="confirmMangaClosure">
+                  <span class="material-icons">check_circle</span>
+                  <span>Cerrar Manga y Volver</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Si aún faltan pilotos, mostrar cronómetro normal de carrera -->
           <PartidaStopwatch
+            v-else
             :time-formatted="timeFormatted"
             :start-time="startTime"
             :active-riders="activeRiders"
@@ -177,7 +218,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onBeforeUnmount } from 'vue';
 import { usePartida } from '../hooks/usePartida';
 import PartidaGrid from '../components/PartidaGrid.vue';
 import PartidaTrigger from '../components/PartidaTrigger.vue';
@@ -205,6 +246,7 @@ const {
   timeFormatted,
   currentStep,
   isSyncingRiders,
+  isMangaCompleted,
   loadInitialData,
   loadRiders,
   toggleRiderPresence,
@@ -231,9 +273,42 @@ const activeCategoryLabel = computed(() => {
   return cat ? cat.name : '';
 });
 
+const handleLiveUpdate = () => {
+  loadRiders();
+};
+
+const handleReset = () => {
+  loadInitialData();
+  loadRiders();
+};
+
+const arrivedRidersCount = computed(() => {
+  return activeRiders.value.filter(r => r.race_status === 'llego').length;
+});
+
+function confirmMangaClosure() {
+  if (confirm('¿Deseas dar por cerrada oficialmente esta manga y regresar al inicio?')) {
+    panicReset(); // calls endpoint that resets category launch status and reverts UI to Step 1
+  }
+}
+
 onMounted(async () => {
   await loadInitialData();
   await loadRiders();
+
+  window.addEventListener('rider-passed-checkpoint', handleLiveUpdate);
+  window.addEventListener('rider-finished', handleLiveUpdate);
+  window.addEventListener('rider-incident-reported', handleLiveUpdate);
+  window.addEventListener('category-manga-started', handleReset);
+  window.addEventListener('race-reset', handleReset);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('rider-passed-checkpoint', handleLiveUpdate);
+  window.removeEventListener('rider-finished', handleLiveUpdate);
+  window.removeEventListener('rider-incident-reported', handleLiveUpdate);
+  window.removeEventListener('category-manga-started', handleReset);
+  window.removeEventListener('race-reset', handleReset);
 });
 </script>
 
@@ -292,6 +367,29 @@ onMounted(async () => {
   border-radius: 12px;
   font-size: 13.5px;
   margin-bottom: 16px;
+  width: 100%;
+}
+
+.error-message-text {
+  flex: 1;
+  font-weight: 700;
+}
+
+.btn-clear-error {
+  background: transparent;
+  border: none;
+  color: #EF4444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.btn-clear-error:hover {
+  background: rgba(239, 68, 68, 0.12);
 }
 
 /* Layout del asistente en Paso 1 */
@@ -786,5 +884,148 @@ onMounted(async () => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   9. VISTA DE COMPETENCIA TERMINADA EN PARTIDA (Step 3 Completed)
+   ========================================================================== */
+.race-completed-wizard-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 30px 24px;
+  box-shadow: var(--shadow-premium);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 540px;
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.glow-header-success-manga {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #10B981, #059669);
+}
+
+.completed-manga-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.checkmark-manga-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.08);
+  border: 2px solid var(--color-success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-success);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+.checkmark-manga-circle span {
+  font-size: 42px;
+}
+
+.completed-manga-body h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.completed-manga-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin: 0;
+  max-width: 420px;
+}
+
+.manga-stats-summary-sport {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.manga-stat-item-sport {
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.stat-lbl-sport {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-val-sport {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 950;
+  color: var(--color-text-primary);
+}
+
+.completed-manga-actions {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.btn-manga-finish {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-manga-finish:hover {
+  background: #059669 !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+}
+
+.animate-pulse-success {
+  animation: pulse-success-manga 2s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-success-manga {
+  from { transform: scale(1); box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+  to { transform: scale(1.05); box-shadow: 0 0 30px rgba(16, 185, 129, 0.35); }
 }
 </style>

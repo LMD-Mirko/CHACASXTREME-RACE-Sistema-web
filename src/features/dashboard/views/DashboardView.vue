@@ -70,6 +70,9 @@
         <FloatingMobileMenu v-if="isMobile" />
       </div>
     </template>
+    
+    <!-- Centro de Notificaciones en Tiempo Real Global -->
+    <RealTimeNotificationCenter />
   </div>
 </template>
 
@@ -80,6 +83,7 @@ import { useAuth } from '../../login/hooks/useAuth';
 import AppSidebar from '../components/AppSidebar.vue';
 import AppHeader from '../components/AppHeader.vue';
 import FloatingMobileMenu from '../components/FloatingMobileMenu.vue';
+import RealTimeNotificationCenter from '../../../components/common/RealTimeNotificationCenter.vue';
 
 const isSidebarOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 1023px)');
@@ -136,11 +140,15 @@ function playNotificationSound() {
 }
 
 onMounted(() => {
+  console.log('[DashboardView] Mounted. Current user:', currentUser.value);
   if (window.Echo) {
     mountainChannel = window.Echo.channel('race-mountain');
+    console.log('[DashboardView] Subscribed to race-mountain channel');
+
     mountainChannel.listen('.RollCallStarted', (e) => {
       const role = currentUser.value?.role?.toUpperCase();
       isRollCallSender.value = (role === 'PARTIDA');
+      console.log('[DashboardView] RollCallStarted event received:', e, 'Role:', role, 'isSender:', isRollCallSender.value);
 
       // Remove emojis from message for a cleaner design
       let cleanMsg = e.message ? e.message.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '') : '';
@@ -152,13 +160,17 @@ onMounted(() => {
         rollCallAlert.value = cleanMsg || 'Juez de Partida pasando lista. Prepárense en sus puestos.';
         playNotificationSound(); // Solo suena en los receptores
       }
+      console.log('[DashboardView] Set rollCallAlert to:', rollCallAlert.value);
       
       if (alertTimeout) clearTimeout(alertTimeout);
       // Duration: 15 seconds
       alertTimeout = setTimeout(() => {
         rollCallAlert.value = '';
+        console.log('[DashboardView] rollCallAlert cleared.');
       }, 15000);
     });
+  } else {
+    console.warn('[DashboardView] window.Echo is not defined!');
   }
 });
 

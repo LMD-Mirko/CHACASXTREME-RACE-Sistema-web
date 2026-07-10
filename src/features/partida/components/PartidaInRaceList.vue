@@ -2,7 +2,7 @@
   <div class="monitoring-panel">
     <div class="panel-header">
       <h3>Pilotos en Carrera (Descendiendo)</h3>
-      <span class="badge-count">{{ activeRiders.length }} en pista</span>
+      <span class="badge-count">{{ ridersStillRacingCount }} en pista</span>
     </div>
 
     <div class="descending-list">
@@ -10,15 +10,31 @@
         v-for="rider in activeRiders"
         :key="rider.id"
         class="descending-row"
+        :class="{ 
+          'descending-row--arrived': rider.race_status === 'llego', 
+          'descending-row--dnf': rider.race_status === 'DNF' 
+        }"
       >
-        <span class="descending-plate">#{{ rider.plate_number }}</span>
+        <span class="descending-plate" :class="{ 'plate--arrived': rider.race_status === 'llego' }">
+          #{{ rider.plate_number }}
+        </span>
         <div class="descending-info">
           <span class="descending-name">{{ rider.full_name }}</span>
           <span class="descending-team">{{ rider.club_team || 'Independiente' }}</span>
         </div>
-        <div class="status-pill status-pill--racing">
+        
+        <!-- Estado Dinámico Deportista -->
+        <div v-if="rider.race_status === 'llego'" class="status-pill status-pill--arrived">
+          <span class="material-icons">check_circle</span>
+          <span>Llegó</span>
+        </div>
+        <div v-else-if="rider.race_status === 'DNF'" class="status-pill status-pill--dnf">
+          <span class="material-icons">cancel</span>
+          <span>Retirado</span>
+        </div>
+        <div v-else class="status-pill status-pill--racing">
           <span class="material-icons spinning-icon">sync</span>
-          En Pista
+          <span>En Pista</span>
         </div>
       </div>
     </div>
@@ -26,11 +42,17 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
   activeRiders: {
     type: Array,
     required: true
   }
+});
+
+const ridersStillRacingCount = computed(() => {
+  return props.activeRiders.filter(r => r.race_status === 'en_carrera' || r.race_status === 'pre_inscrito').length;
 });
 </script>
 
@@ -86,8 +108,20 @@ defineProps({
   padding: 10px 14px;
   background: var(--color-background);
   border: 1px solid var(--color-border);
+  border-left: 4px solid transparent;
   border-radius: 12px;
   gap: 12px;
+  transition: all 0.25s ease;
+}
+
+.descending-row--arrived {
+  border-left: 4px solid var(--color-success) !important;
+  opacity: 0.85;
+}
+
+.descending-row--dnf {
+  border-left: 4px solid var(--color-error) !important;
+  opacity: 0.7;
 }
 
 .descending-plate {
@@ -106,10 +140,17 @@ defineProps({
   border: 1px solid rgba(255, 94, 0, 0.1);
 }
 
+.plate--arrived {
+  color: var(--color-success) !important;
+  background: rgba(16, 185, 129, 0.05) !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+}
+
 .descending-info {
   flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
   gap: 1px;
 }
@@ -121,6 +162,7 @@ defineProps({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .descending-team {
@@ -129,6 +171,7 @@ defineProps({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .status-pill {
@@ -146,6 +189,18 @@ defineProps({
   background: rgba(255, 94, 0, 0.08);
   color: var(--color-primary);
   border: 1px solid rgba(255, 94, 0, 0.15);
+}
+
+.status-pill--arrived {
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.status-pill--dnf {
+  background: rgba(239, 68, 68, 0.08);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.15);
 }
 
 .spinning-icon {

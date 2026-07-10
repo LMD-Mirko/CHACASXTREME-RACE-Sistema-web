@@ -82,15 +82,25 @@ export async function updateRiderStatus(riderId, status) {
   return response.data.data;
 }
 
-/**
- * Notifica que se ha iniciado el pase de lista para una categoría.
- * @param {Object} data - Datos del pase de lista.
- * @param {number|string} data.category_id - ID de la categoría o 'all'.
- * @param {string} data.phase - Fase activa ('practica' o 'final').
- * @returns {Promise<Object>} Respuesta del servidor.
- */
 export async function notifyRollCallStart(data) {
   const response = await api.post('/api/category-starts/roll-call', data);
   return response.data;
 }
+
+/**
+ * Notifica que ha finalizado el pase de lista y transmite la lista de presentes.
+ */
+export async function notifyRollCallFinish(data) {
+  const response = await api.post('/api/category-starts/roll-call-finish', data);
+  return response.data;
+}
+
+/**
+ * Notifica el inicio del conteo regresivo de largada.
+ */
+export async function notifyCountdownStart(data) {
+  const response = await api.post('/api/category-starts/start-countdown', data);
+  return response.data;
+}
+
 

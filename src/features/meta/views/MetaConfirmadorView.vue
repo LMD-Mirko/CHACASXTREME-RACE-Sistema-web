@@ -397,6 +397,16 @@ onMounted(() => {
       loadInitialData(); // reload riders list state
     });
 
+    // Escucha de tiempo anulado
+    channel.listen('.TimeAnnulledInMeta', (e) => {
+      finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== e.queue_id);
+    });
+
+    // Escucha de limpieza de cola
+    channel.listen('.QueueClearedInMeta', () => {
+      finishTimeQueue.value = [];
+    });
+
     // Suscripción a canal de montaña
     mountainChannel = window.Echo.channel('race-mountain');
 
@@ -405,13 +415,18 @@ onMounted(() => {
       loadInitialData();
     });
   }
+
+  window.addEventListener('category-manga-started', loadInitialData);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('category-manga-started', loadInitialData);
   if (stopwatchInterval) clearInterval(stopwatchInterval);
   if (channel && window.Echo) {
     channel.stopListening('.TimeFreezedInMeta');
     channel.stopListening('.RiderFinished');
+    channel.stopListening('.TimeAnnulledInMeta');
+    channel.stopListening('.QueueClearedInMeta');
   }
   if (mountainChannel && window.Echo) {
     mountainChannel.stopListening('.RiderIncidentReported');

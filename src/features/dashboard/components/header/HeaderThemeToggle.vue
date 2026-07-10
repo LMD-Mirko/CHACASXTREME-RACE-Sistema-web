@@ -27,6 +27,7 @@ onMounted(() => {
 const toggleTheme = () => {
   isDark.value = !isDark.value;
   document.body.classList.toggle('dark-theme', isDark.value);
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
 };
 </script>
 

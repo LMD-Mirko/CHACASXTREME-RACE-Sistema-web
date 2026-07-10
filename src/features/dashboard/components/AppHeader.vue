@@ -17,6 +17,12 @@
 
     <!-- Lado derecho: Reloj en vivo, Switch de tema y Avatar con dropdown -->
     <div class="header-right">
+      <!-- Indicador de WebSocket Sincronizado -->
+      <div class="ws-indicator" :class="'ws-indicator--' + wsStatus" :title="'Servidor de Sincronización: ' + wsStatus">
+        <span class="ws-indicator-dot"></span>
+        <span class="ws-indicator-label">{{ wsStatus === 'connected' ? 'LIVE' : 'SYNC' }}</span>
+      </div>
+
       <HeaderClock />
       
       <div class="vertical-divider"></div>
@@ -35,6 +41,7 @@ import HeaderClock from './header/HeaderClock.vue';
 import HeaderThemeToggle from './header/HeaderThemeToggle.vue';
 import HeaderUserAvatar from './header/HeaderUserAvatar.vue';
 import { useRiders } from '../../competidores/composables/useRiders';
+import { wsStatus } from '../../../core/network/wsStatus';
 
 defineProps({
   showHamburger: {
@@ -167,6 +174,70 @@ const currentSectionName = computed(() => {
   
   .section-label {
     font-size: 16px;
+  }
+}
+
+/* Indicador de WebSocket */
+.ws-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+}
+
+.ws-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94A3B8;
+  transition: all 0.3s ease;
+}
+
+.ws-indicator--connected {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+}
+
+.ws-indicator--connected .ws-indicator-dot {
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+  animation: pulse-dot 1.5s infinite alternate ease-in-out;
+}
+
+.ws-indicator--connecting .ws-indicator-dot,
+.ws-indicator--disconnected .ws-indicator-dot {
+  background: #EF4444;
+  box-shadow: 0 0 8px #EF4444;
+  animation: pulse-dot-red 1s infinite alternate ease-in-out;
+}
+
+.ws-indicator-label {
+  letter-spacing: 0.5px;
+}
+
+@keyframes pulse-dot {
+  from { transform: scale(0.9); opacity: 0.6; }
+  to { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes pulse-dot-red {
+  from { transform: scale(0.9); opacity: 0.4; }
+  to { transform: scale(1.1); opacity: 1; }
+}
+
+@media (max-width: 600px) {
+  .ws-indicator-label {
+    display: none;
+  }
+  .ws-indicator {
+    padding: 6px;
   }
 }
 </style>

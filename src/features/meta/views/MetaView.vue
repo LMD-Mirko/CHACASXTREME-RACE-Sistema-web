@@ -102,6 +102,44 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 8. MODAL DE FINALIZACIÓN EXCELENTE / MANGA COMPLETADA -->
+    <Teleport to="body">
+      <Transition name="modal-scale">
+        <div v-if="showSuccessMangaModal" class="manga-completed-overlay">
+          <div class="manga-completed-card">
+            <div class="glow-header-sport"></div>
+            
+            <div class="card-body-content-sport">
+              <div class="badge-icon-completed animate-bounce-subtle">
+                <span class="material-icons">sports_motorsports</span>
+              </div>
+              
+              <h4 class="completed-subtitle">MANGA FINALIZADA</h4>
+              <h2 class="completed-title">{{ activeCompetition?.name || 'CHACAS XTREME' }}</h2>
+              <p class="completed-phase">{{ activeCompetition?.phase === 'practica' ? 'PRUEBA DE ENTRENAMIENTO' : 'MANGA DE CARRERA FINAL' }}</p>
+              
+              <div class="metrics-grid-completed">
+                <div class="metric-box-comp">
+                  <span class="lbl-box-comp">COMPETIDORES EN META</span>
+                  <strong class="val-box-comp">{{ ridersArrived.length }} / {{ riders.length }}</strong>
+                </div>
+                <div class="metric-box-comp">
+                  <span class="lbl-box-comp">TIEMPO TRANSCURRIDO</span>
+                  <strong class="val-box-comp">{{ stopwatchTime }}</strong>
+                </div>
+              </div>
+              
+              <p class="completed-congrats">¡Todos los pilotos en pista han cruzado la meta con éxito!</p>
+            </div>
+
+            <button class="manga-dismiss-btn" @click="showSuccessMangaModal = false">
+              Aceptar y Continuar
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </div>
 </template>
@@ -129,6 +167,33 @@ const {
 
 const isToastActive = ref(false);
 let toastTimeout = null;
+
+const showSuccessMangaModal = ref(false);
+const hasRidersLoaded = ref(false);
+
+function playSuccessSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playTone = (freq, startTime, duration) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, startTime);
+      g.gain.setValueAtTime(0.12, startTime);
+      g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start(startTime);
+      o.stop(startTime + duration);
+    };
+    
+    const now = audioCtx.currentTime;
+    playTone(659.25, now, 0.4); // E5
+    playTone(830.61, now + 0.1, 0.4); // G#5
+    playTone(987.77, now + 0.2, 0.6); // B5
+  } catch (e) {}
+}
+
 
 function showArrivalToast() {
   isToastActive.value = true;
@@ -210,6 +275,21 @@ const ridersArrived = computed(() => {
   return riders.value.filter(r => r.race_status === 'llego');
 });
 
+watch(() => riders.value.length, (newLength) => {
+  if (newLength > 0) {
+    hasRidersLoaded.value = true;
+  }
+});
+
+watch(() => ridersInRace.value.length, (newVal) => {
+  if (hasRidersLoaded.value && newVal === 0 && riders.value.length > 0) {
+    showSuccessMangaModal.value = true;
+    playSuccessSound();
+  } else {
+    showSuccessMangaModal.value = false;
+  }
+});
+
 function checkViewport() {
   isDesktop.value = window.innerWidth >= 1024;
 }
@@ -261,6 +341,7 @@ watch(() => activeCompetition.value, (newVal) => {
 onMounted(() => {
   loadInitialData();
   window.addEventListener('resize', checkViewport);
+  window.addEventListener('category-manga-started', loadInitialData);
 
   // Suscripción en tiempo real a Laravel Echo / Reverb
   if (window.Echo) {
@@ -281,15 +362,28 @@ onMounted(() => {
       loadInitialData(); // reload riders list to update statuses in columns
     });
 
+    // Escucha de tiempo anulado
+    channel.listen('.TimeAnnulledInMeta', (e) => {
+      finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== e.queue_id);
+    });
+
+    // Escucha de limpieza de cola
+    channel.listen('.QueueClearedInMeta', () => {
+      finishTimeQueue.value = [];
+    });
+
   }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkViewport);
+  window.removeEventListener('category-manga-started', loadInitialData);
   if (stopwatchInterval) clearInterval(stopwatchInterval);
   if (channel && window.Echo) {
     channel.stopListening('.TimeFreezedInMeta');
     channel.stopListening('.RiderFinished');
+    channel.stopListening('.TimeAnnulledInMeta');
+    channel.stopListening('.QueueClearedInMeta');
   }
 });
 </script>
@@ -622,6 +716,201 @@ onBeforeUnmount(() => {
     transform: translate(-50%, -30px);
     opacity: 0;
   }
+}
+
+/* ==========================================================================
+   8. MODAL DE FINALIZACIÓN EXCELENTE (Manga Completada)
+   ========================================================================== */
+.manga-completed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15000;
+  background: rgba(8, 8, 10, 0.85);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.manga-completed-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 28px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4), 0 0 30px rgba(16, 185, 129, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: background 0.3s;
+}
+
+.glow-header-sport {
+  height: 6px;
+  width: 100%;
+  background: linear-gradient(90deg, #10B981, #059669);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+}
+
+.card-body-content-sport {
+  padding: 30px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.badge-icon-completed {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10B981;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.1);
+}
+
+.badge-icon-completed span {
+  font-size: 38px;
+}
+
+.completed-subtitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #10B981;
+  letter-spacing: 2px;
+  margin: 0;
+}
+
+.completed-title {
+  font-size: 20px;
+  font-weight: 850;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.completed-phase {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  letter-spacing: 1px;
+  margin: 0;
+  margin-top: -4px;
+}
+
+.metrics-grid-completed {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.metric-box-comp {
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  padding: 12px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.lbl-box-comp {
+  font-size: 8.5px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.val-box-comp {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--color-text-primary);
+}
+
+.completed-congrats {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.manga-dismiss-btn {
+  width: calc(100% - 48px);
+  margin: 0 24px 28px;
+  background: #10B981;
+  color: #FFFFFF;
+  border: none;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 14px;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+
+.manga-dismiss-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  background: #059669;
+}
+
+.manga-dismiss-btn:active {
+  transform: translateY(0);
+}
+
+/* Transición Escala */
+.modal-scale-enter-active,
+.modal-scale-leave-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-scale-enter-from {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.modal-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Animaciones */
+.animate-bounce-subtle {
+  animation: bounce-subtle-comp 2.5s infinite ease-in-out;
+}
+
+@keyframes bounce-subtle-comp {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.dark-theme .manga-completed-card {
+  background-color: #0c0c0e !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(16, 185, 129, 0.15) !important;
+}
+
+.dark-theme .metric-box-comp {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
 }
 
 </style>

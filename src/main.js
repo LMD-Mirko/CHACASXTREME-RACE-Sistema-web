@@ -4,6 +4,14 @@ import './core/network/echo'
 import App from './App.vue'
 import router from './router'
 
+// Initialize theme from localStorage (defaulting to dark)
+const savedTheme = localStorage.getItem('theme') || 'dark';
+if (savedTheme === 'dark') {
+  document.body.classList.add('dark-theme');
+} else {
+  document.body.classList.remove('dark-theme');
+}
+
 
 // Importación de componentes de UI globales
 import AppButton from './components/ui/AppButton.vue'

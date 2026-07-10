@@ -2,7 +2,8 @@
   <div class="gatillo-container">
     <button
       class="pulsador-btn"
-      :class="{ 'pulsador-btn--active': isActive }"
+      :class="{ 'pulsador-btn--active': isActive, 'pulsador-btn--disabled': isDisabled }"
+      :disabled="isDisabled"
       @mousedown="pulseActive"
       @mouseup="pulseRelease"
       @mouseleave="pulseRelease"
@@ -10,27 +11,38 @@
       @touchend="pulseRelease"
     >
       <div class="pulsador-content">
-        <span class="material-icons gatillo-icon">sports_score</span>
-        <span class="btn-text">CONGELAR TIEMPO</span>
-        <span class="btn-subtext">[ BARRA ESPACIADORA ]</span>
+        <span class="material-icons gatillo-icon">{{ isDisabled ? 'check_circle' : 'sports_score' }}</span>
+        <span class="btn-text">{{ isDisabled ? 'CARRERA COMPLETADA' : 'CONGELAR TIEMPO' }}</span>
+        <span class="btn-subtext" v-if="!isDisabled">[ BARRA ESPACIADORA ]</span>
+        <span class="btn-subtext" v-else>TODOS LOS PILOTOS REGISTRADOS</span>
       </div>
     </button>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useMeta } from '../../hooks/useMeta';
 
-const { triggerBlindTime } = useMeta();
+const { triggerBlindTime, riders } = useMeta();
 const isActive = ref(false);
 
+const ridersInRace = computed(() => {
+  return riders.value.filter(r => r.race_status === 'en_carrera');
+});
+
+const isDisabled = computed(() => {
+  return riders.value.length > 0 && ridersInRace.value.length === 0;
+});
+
 function pulseActive() {
+  if (isDisabled.value) return;
   isActive.value = true;
   triggerBlindTime();
 }
 
 function pulseActiveTouch() {
+  if (isDisabled.value) return;
   isActive.value = true;
   triggerBlindTime();
 }
@@ -45,6 +57,7 @@ function handleKeyDown(e) {
   if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
 
   if (e.code === 'Space') {
+    if (isDisabled.value) return;
     e.preventDefault();
     if (!isActive.value) {
       isActive.value = true;
@@ -109,6 +122,19 @@ onBeforeUnmount(() => {
   box-shadow: 0 5px 15px rgba(255, 94, 0, 0.5), inset 0 -4px 10px rgba(0,0,0,0.6) !important;
   background: radial-gradient(circle, #CC4B00 0%, #883300 100%) !important;
   border-color: var(--color-primary) !important;
+}
+
+.pulsador-btn--disabled {
+  background: radial-gradient(circle, #2D3748 0%, #1A202C 100%) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  color: var(--color-text-secondary) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.pulsador-btn--disabled .btn-subtext {
+  color: var(--color-success) !important;
 }
 
 .pulsador-content {

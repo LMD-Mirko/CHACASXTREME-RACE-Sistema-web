@@ -2,7 +2,7 @@ import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import {
   getActiveCompetition, getCategories, getRidersByCategory,
   triggerCategoryStart, resetCategoryStart, closeDeparture, updateRiderStatus,
-  notifyRollCallStart
+  notifyRollCallStart, notifyRollCallFinish, notifyCountdownStart
 } from '../services/partidaService';
 
 const activeCompetition = ref(null);
@@ -196,10 +196,21 @@ export function usePartida() {
     }
   }
 
-  function startLaunchCountdown() {
+  async function startLaunchCountdown() {
     if (!isGridConfirmed.value || !allActiveRidersPresent.value) return;
     raceState.value = 'counting';
     countdown.value = 3;
+
+    try {
+      await notifyCountdownStart({
+        category_id: selectedCategoryId.value,
+        phase: selectedPhase.value,
+        duration_seconds: 3
+      });
+    } catch (err) {
+      console.error('Error al iniciar cuenta regresiva remota:', err);
+    }
+
     const countInterval = setInterval(() => {
       countdown.value--;
       if (countdown.value === 0) {
@@ -208,6 +219,20 @@ export function usePartida() {
       }
     }, 1000);
   }
+
+  watch(isGridConfirmed, async (newVal) => {
+    if (newVal) {
+      try {
+        await notifyRollCallFinish({
+          category_id: selectedCategoryId.value,
+          phase: selectedPhase.value,
+          present_rider_ids: Array.from(presentRiderIds.value)
+        });
+      } catch (err) {
+        console.error('Error al enviar notificación de grilla confirmada:', err);
+      }
+    }
+  });
 
   async function triggerLaunch() {
     if (!activeCompetition.value || !selectedCategoryId.value) return;
@@ -293,6 +318,20 @@ export function usePartida() {
     if (modalTimeout) clearTimeout(modalTimeout);
   });
 
+  const ridersStillRacing = computed(() => {
+    return riders.value.filter(r => r.race_status === 'en_carrera' || r.race_status === 'pre_inscrito');
+  });
+
+  const isMangaCompleted = computed(() => {
+    return raceState.value === 'active' && riders.value.length > 0 && ridersStillRacing.value.length === 0;
+  });
+
+  watch(isMangaCompleted, (completed) => {
+    if (completed) {
+      stopStopwatch();
+    }
+  });
+
   watch([selectedCategoryId, selectedPhase], () => loadRiders());
 
   return {
@@ -300,7 +339,7 @@ export function usePartida() {
     searchQuery, isGridConfirmed, isLoading, errorMessage, raceState, countdown,
     startTime, startTimeStr, elapsedTimeMs, isIdle, isCounting, isActive, activeRiders, dnsRiders,
     presentRiderIds, lastCheckedRider, showCheckModal, allActiveRidersPresent, timeFormatted,
-    currentStep, isSyncingRiders,
+    currentStep, isSyncingRiders, isMangaCompleted,
     loadInitialData, loadRiders, toggleRiderPresence, setRiderDNS, revertRiderDNS,
     startLaunchCountdown, panicReset, startRollCall
   };

@@ -8,11 +8,13 @@ window.Pusher = Pusher;
 window.Echo = new Echo({
   broadcaster: 'reverb',
   key: 'uqehdqpxmzpvlro4kocd',
-  wsHost: '127.0.0.1',
+  wsHost: window.location.hostname, // Dinámico: Resuelve IP local o dominio del servidor automáticamente!
   wsPort: 8080,
   wssPort: 8080,
-  forceTLS: false,
+  forceTLS: window.location.protocol === 'https:',
   enabledTransports: ['ws', 'wss'],
+  activityTimeout: 10000, // Detectar conexiones caídas rápidamente (10 segundos)
+  pongTimeout: 5000,      // Espera de respuesta ping del servidor
 });
 
 // --- MODO TÚNEL CLOUDFLARE (Activar cuando uses un túnel para el WebSocket) ---

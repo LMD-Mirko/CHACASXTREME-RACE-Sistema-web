@@ -70,8 +70,8 @@ export function useClassification() {
   function setupWebSocketListener() {
     if (!window.Echo) return;
 
-    // Connect and listen to the public channel (e.g. competition channel or generic race updates)
-    window.Echo.channel('competition-channel')
+    // Escuchar tiempos y estimados en race-timing
+    window.Echo.channel('race-timing')
       .listen('.RiderEstimatedArrival', () => {
         loadClassifications();
       })
@@ -80,7 +80,10 @@ export function useClassification() {
       })
       .listen('.CorrectionsApplied', () => {
         loadClassifications();
-      })
+      });
+
+    // Escuchar cambios de fase en la infraestructura
+    window.Echo.channel('race-infrastructure')
       .listen('.CompetitionPhaseChanged', (e) => {
         if (activeCompetition.value) {
           activeCompetition.value.current_phase = e.phase;
@@ -91,18 +94,35 @@ export function useClassification() {
 
   function cleanupWebSocketListener() {
     if (!window.Echo) return;
-    window.Echo.leaveChannel('competition-channel');
+    window.Echo.leaveChannel('race-timing');
+    window.Echo.leaveChannel('race-infrastructure');
   }
+
+  const handleLiveClassUpdate = () => {
+    loadClassifications();
+  };
+
+  const handleResetClass = async () => {
+    await loadActiveCompetition();
+    await loadClassifications();
+  };
 
   onMounted(async () => {
     await loadActiveCompetition();
     await loadCategories();
     await loadClassifications();
     setupWebSocketListener();
+
+    window.addEventListener('race-reset', handleResetClass);
+    window.addEventListener('rider-passed-checkpoint', handleLiveClassUpdate);
+    window.addEventListener('rider-incident-reported', handleLiveClassUpdate);
   });
 
   onBeforeUnmount(() => {
     cleanupWebSocketListener();
+    window.removeEventListener('race-reset', handleResetClass);
+    window.removeEventListener('rider-passed-checkpoint', handleLiveClassUpdate);
+    window.removeEventListener('rider-incident-reported', handleLiveClassUpdate);
   });
 
   return {

@@ -10,18 +10,30 @@ import { ref, onMounted } from 'vue';
 const isDark = ref(true); // Controla el estado del tema oscuro
 
 onMounted(() => {
-  // Verificar si la clase de tema oscuro ya está aplicada en el body
-  const hasDarkClass = document.body.classList.contains('dark-theme');
-  isDark.value = hasDarkClass;
+  // Verificar si hay una preferencia guardada en localStorage o la clase en el body
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    isDark.value = savedTheme === 'dark';
+    if (isDark.value) {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+  } else {
+    const hasDarkClass = document.body.classList.contains('dark-theme');
+    isDark.value = hasDarkClass;
+  }
 });
 
-// Cambia el tema actual entre claro y oscuro agregando/removiendo la clase global
+// Cambia el tema actual entre claro y oscuro agregando/removiendo la clase global y guardando en localStorage
 const toggleTheme = () => {
   isDark.value = !isDark.value;
   if (isDark.value) {
     document.body.classList.add('dark-theme');
+    localStorage.setItem('theme', 'dark');
   } else {
     document.body.classList.remove('dark-theme');
+    localStorage.setItem('theme', 'light');
   }
 };
 </script>

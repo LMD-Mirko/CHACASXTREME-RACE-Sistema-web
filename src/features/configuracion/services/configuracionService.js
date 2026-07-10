@@ -59,3 +59,8 @@ export async function finalizeCategory(competitionId, categoryId) {
   });
   return response.data.data;
 }
+
+export async function resetCompetitionResults(competitionId) {
+  const response = await api.post(`/api/competitions/${competitionId}/reset-results`);
+  return response.data;
+}

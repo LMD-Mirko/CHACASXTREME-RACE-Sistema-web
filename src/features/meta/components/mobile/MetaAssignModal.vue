@@ -169,6 +169,9 @@ function formatTimeStr(dateStr) {
 
 async function onSubmit() {
   if (!plateNumber.value || !matchedRider.value || isLoading.value) return;
+  if (navigator.vibrate) {
+    navigator.vibrate(60); // Retroalimentación háptica rápida al confirmar
+  }
   await assignBlindTime(props.queueItem.id, parseInt(plateNumber.value));
   emit('assigned');
 }

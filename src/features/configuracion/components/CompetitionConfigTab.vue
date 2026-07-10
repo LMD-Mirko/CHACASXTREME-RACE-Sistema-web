@@ -81,13 +81,33 @@
           </div>
         </div>
       </div>
+
+      <!-- Tarjeta de Zona de Peligro (Reinicio de Carrera) -->
+      <div class="config-card config-card--danger">
+        <h4 class="text-danger-title">Zona de Peligro</h4>
+        <p class="section-help-text">
+          Reiniciar la carrera borrará de forma permanente todos los tiempos registrados, pases de checkpoints y regresará a todos los corredores al estado pre-inscrito para comenzar una nueva manga limpia.
+        </p>
+
+        <div class="danger-zone-action">
+          <AppButton
+            variant="primary"
+            icon="delete_forever"
+            class="btn-danger-reset"
+            @click="handleResetCompetition"
+            :loading="resetting"
+          >
+            Reiniciar Carrera a 0
+          </AppButton>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getActiveCompetition, updateCompetitionPhase, finalizeCategory, getCategories } from '../services/configuracionService';
+import { getActiveCompetition, updateCompetitionPhase, finalizeCategory, getCategories, resetCompetitionResults } from '../services/configuracionService';
 
 const activeComp = ref(null);
 const categories = ref([]);
@@ -147,6 +167,29 @@ async function handleFinalizeCategory(cat) {
     showAlert(err.friendlyMessage || 'Error al consolidar la categoría', 'error');
   } finally {
     finalizingIds.value = finalizingIds.value.filter(id => id !== cat.id);
+  }
+}
+
+const resetting = ref(false);
+
+async function handleResetCompetition() {
+  if (!activeComp.value) return;
+  
+  const step1 = confirm("⚠️ ATENCIÓN: Esta acción eliminará permanentemente todos los pases por checkpoints, tiempos registrados en meta, bitácoras offline y restablecerá a todos los corredores al estado 'Pre-inscrito'. ¿Deseas continuar?");
+  if (!step1) return;
+
+  const step2 = confirm("🚨 CONFIRMACIÓN CRÍTICA: ¿Estás absolutamente seguro de querer reiniciar la competencia a cero? Esta acción no se puede deshacer y borrará los resultados activos.");
+  if (!step2) return;
+
+  resetting.value = true;
+  try {
+    const res = await resetCompetitionResults(activeComp.value.id);
+    showAlert(`La competencia "${activeComp.value.name}" ha sido reiniciada con éxito. Todos los dispositivos han sido notificados.`);
+    await loadData();
+  } catch (err) {
+    showAlert(err.friendlyMessage || 'Error al reiniciar la competencia', 'error');
+  } finally {
+    resetting.value = false;
   }
 }
 
@@ -361,6 +404,39 @@ onMounted(loadData);
   color: inherit;
   cursor: pointer;
   display: flex;
+}
+
+
+.config-card--danger {
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.config-card--danger:hover {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.05) !important;
+}
+
+.text-danger-title {
+  color: var(--color-error) !important;
+}
+
+.danger-zone-action {
+  margin-top: 12px;
+  border-top: 1px dashed rgba(239, 68, 68, 0.15);
+  padding-top: 16px;
+  display: flex;
+}
+
+.btn-danger-reset {
+  background: var(--color-error) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  width: 100%;
+}
+
+.btn-danger-reset:hover {
+  background: #DC2626 !important;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.35);
 }
 
 @keyframes spin {

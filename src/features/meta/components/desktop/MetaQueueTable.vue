@@ -54,7 +54,7 @@
               <button
                 class="btn-annul"
                 title="Anular marca"
-                @click="annulBlindTime(item.id)"
+                @click="onAnnul(item.id)"
               >
                 <span class="material-icons">close</span>
               </button>
@@ -110,6 +110,12 @@ function onAssign(id) {
   if (!pl || !pl.trim()) return;
   assignBlindTime(id, parseInt(pl.trim()));
   plates[id] = ''; // clear input
+}
+
+function onAnnul(id) {
+  if (confirm('¿Estás seguro de que deseas anular esta marca de tiempo?')) {
+    annulBlindTime(id);
+  }
 }
 </script>
 
