@@ -90,7 +90,7 @@
               <th class="col-check">P. CONTROL</th>
               <th class="col-time">META</th>
               <th class="col-net">TIEMPO NETO</th>
-              <th class="col-gap">GAP (DIF)</th>
+              <th class="col-gap">DIF. LÍDER</th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +155,7 @@
 
               <!-- Partida -->
               <td class="col-time text-mono">
-                {{ rider.start_time || '—' }}
+                {{ formatTo12Hour(rider.start_time) }}
               </td>
 
               <!-- Paso Intermedio -->
@@ -163,7 +163,7 @@
                 <span 
                   class="check-badge" 
                   :class="rider.intermediate_passed ? 'check-passed' : 'check-missed'"
-                  :data-tooltip="rider.intermediate_time ? 'Paso: ' + rider.intermediate_time : 'Sin Registro'"
+                  :data-tooltip="rider.intermediate_time ? 'Paso: ' + formatTo12Hour(rider.intermediate_time) : 'Sin Registro'"
                 >
                   <span class="material-icons check-icon">
                     {{ rider.intermediate_passed ? 'done' : 'close' }}
@@ -174,7 +174,7 @@
 
               <!-- Meta -->
               <td class="col-time text-mono">
-                {{ rider.meta_time || '—' }}
+                {{ formatTo12Hour(rider.meta_time) }}
               </td>
 
               <!-- Tiempo Neto -->
@@ -182,12 +182,17 @@
                 <span v-if="rider.status === 'EN RUTA'" class="pulsing-time">EN RUTA...</span>
                 <span v-else-if="rider.status === 'DNF'" class="text-dnf-time">RETIRADO</span>
                 <span v-else-if="rider.status === 'DNS'" class="text-dns-time">NO INICIÓ</span>
-                <span v-else>{{ rider.time_formatted }}</span>
+                <div v-else class="net-time-display-wrapper">
+                  <span class="main-net-time">{{ rider.time_formatted }}</span>
+                  <span class="sub-human-time">{{ formatHumanDuration(rider.duration_ms) }}</span>
+                </div>
               </td>
 
               <!-- Gap -->
               <td class="col-gap text-mono font-semibold" :class="{ 'text-success': rider.gap !== 'Líder' && rider.gap !== '—' }">
-                {{ rider.gap }}
+                <div class="gap-display-wrapper">
+                  <span class="main-gap">{{ getFormattedGap(rider) }}</span>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -247,6 +252,22 @@
                 {{ rider.club_team || rider.origin }}
               </span>
             </div>
+
+            <!-- Tiempos de registro del piloto en móvil -->
+            <div class="card-rider-times" v-if="rider.start_time">
+              <div class="card-time-item">
+                <span class="time-item-lbl">Salida:</span>
+                <span class="time-item-val">{{ formatTo12Hour(rider.start_time) }}</span>
+              </div>
+              <div class="card-time-item" v-if="rider.meta_time">
+                <span class="time-item-lbl">Llegada:</span>
+                <span class="time-item-val">{{ formatTo12Hour(rider.meta_time) }}</span>
+              </div>
+              <div class="card-time-item" v-if="rider.intermediate_time">
+                <span class="time-item-lbl">Control:</span>
+                <span class="time-item-val">{{ formatTo12Hour(rider.intermediate_time) }}</span>
+              </div>
+            </div>
           </div>
 
           <!-- Tiempos e Intermedio -->
@@ -256,12 +277,15 @@
               <span v-if="rider.status === 'EN RUTA'" class="footer-val text-mono font-bold pulsing-time">EN RUTA...</span>
               <span v-else-if="rider.status === 'DNF'" class="footer-val text-mono font-bold text-dnf-time">RETIRADO</span>
               <span v-else-if="rider.status === 'DNS'" class="footer-val text-mono font-bold text-dns-time">NO INICIÓ</span>
-              <span v-else class="footer-val text-primary text-mono font-extrabold">{{ rider.time_formatted }}</span>
+              <div v-else class="footer-val-wrapper">
+                <span class="footer-val text-primary text-mono font-extrabold">{{ rider.time_formatted }}</span>
+                <span class="footer-sub-val">{{ formatHumanDuration(rider.duration_ms) }}</span>
+              </div>
             </div>
             <div class="footer-time-box">
-              <span class="footer-lbl">DIF (GAP)</span>
+              <span class="footer-lbl">DIF. LÍDER</span>
               <span class="footer-val text-mono font-semibold" :class="{ 'text-success': rider.gap !== 'Líder' && rider.gap !== '—' }">
-                {{ rider.gap }}
+                {{ getFormattedGap(rider) }}
               </span>
             </div>
             <div class="footer-time-box text-center">
@@ -289,6 +313,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { useClassification } from '../hooks/useClassification';
 
 const {
@@ -314,6 +339,50 @@ function statusClass(status) {
     case 'DNS': return 'status-dns';
     default: return 'status-pending';
   }
+}
+
+function formatTo12Hour(timeStr) {
+  if (!timeStr || timeStr === '—') return '—';
+  const parts = timeStr.split(':');
+  if (parts.length < 3) return timeStr;
+  let hours = parseInt(parts[0]);
+  const minutes = parts[1];
+  const seconds = parts[2];
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // el valor 0 de la hora pasa a 12
+  return `${hours}:${minutes}:${seconds} ${ampm}`;
+}
+
+function formatHumanDuration(ms) {
+  if (!ms || isNaN(ms)) return '';
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const hours = Math.floor(minutes / 60);
+  
+  if (hours > 0) {
+    const minsRem = minutes % 60;
+    return `${hours}h ${minsRem}m ${seconds}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes} min ${seconds}s`;
+  }
+  return `${seconds} s`;
+}
+
+const leaderDuration = computed(() => {
+  const leader = filteredClassifications.value.find(r => r.status === 'LLEGÓ' && r.duration_ms > 0);
+  return leader ? leader.duration_ms : null;
+});
+
+function getFormattedGap(rider) {
+  if (rider.status !== 'LLEGÓ' || !rider.duration_ms) return '—';
+  if (!leaderDuration.value || rider.duration_ms === leaderDuration.value) {
+    return 'Líder';
+  }
+  const diffMs = rider.duration_ms - leaderDuration.value;
+  return '+' + formatHumanDuration(diffMs);
 }
 </script>
 
@@ -958,6 +1027,72 @@ function statusClass(status) {
 
 .text-dns {
   color: #64748B;
+}
+
+/* Nuevas clases para legibilidad de tiempos */
+.net-time-display-wrapper, .gap-display-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.main-net-time {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.sub-human-time {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.main-gap {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.footer-val-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.footer-sub-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.card-rider-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 8px;
+  width: 100%;
+}
+
+.card-time-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 10.5px;
+}
+
+.time-item-lbl {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+.time-item-val {
+  color: var(--color-text-primary);
+  font-weight: 700;
 }
 
 /* RESPONSIVE MEDIA QUERIES */
