@@ -8,10 +8,10 @@ window.Pusher = Pusher;
 window.Echo = new Echo({
   broadcaster: 'reverb',
   key: 'uqehdqpxmzpvlro4kocd',
-  wsHost: window.location.hostname, // Dinámico: Resuelve IP local o dominio del servidor automáticamente!
+  wsHost: '24.199.82.193',
   wsPort: 8080,
   wssPort: 8080,
-  forceTLS: window.location.protocol === 'https:',
+  forceTLS: false,
   enabledTransports: ['ws', 'wss'],
   activityTimeout: 10000, // Detectar conexiones caídas rápidamente (10 segundos)
   pongTimeout: 5000,      // Espera de respuesta ping del servidor
