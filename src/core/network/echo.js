@@ -8,10 +8,10 @@ window.Pusher = Pusher;
 window.Echo = new Echo({
   broadcaster: 'reverb',
   key: 'uqehdqpxmzpvlro4kocd',
-  wsHost: '24.199.82.193',
-  wsPort: 8080,
-  wssPort: 8080,
-  forceTLS: false,
+  wsHost: 'athens-mats-announced-precise.trycloudflare.com',
+  wsPort: 443,
+  wssPort: 443,
+  forceTLS: true,
   enabledTransports: ['ws', 'wss'],
   activityTimeout: 10000, // Detectar conexiones caídas rápidamente (10 segundos)
   pongTimeout: 5000,      // Espera de respuesta ping del servidor
