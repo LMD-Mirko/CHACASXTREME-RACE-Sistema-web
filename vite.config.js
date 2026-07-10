@@ -61,5 +61,14 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://24.199.82.193:8888',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })
