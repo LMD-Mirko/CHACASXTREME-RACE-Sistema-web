@@ -2,17 +2,15 @@
   <Teleport to="body">
     <Transition name="zoom-fade">
       <div v-if="show" class="countdown-overlay" :class="{ 'overlay--go': countdown === 0 }">
-        <!-- Fondo de Cuadrícula con Banderas de Meta Cruzadas -->
-        <div class="hud-bg-effects">
-          <div class="check-flag-overlay" :class="{ 'check-flag-overlay--active': countdown === 0 }"></div>
-          <div class="hud-scanner-line"></div>
-        </div>
+        <!-- 1. Grid editorial and dynamic background -->
+        <div class="overlay-grid-bg"></div>
+        <div class="overlay-slanted-wipe" :class="{ 'slanted-wipe--go': countdown === 0 }"></div>
 
-        <div class="hud-cockpit-box">
-          <!-- Tacómetro de Largada Circular (Raider HUD) -->
-          <div class="hud-tachometer-circle" :class="{ 'tachometer--go': countdown === 0 }">
-            <!-- Arcos del Tacómetro (Indicadores LED) -->
-            <svg class="hud-svg-ring" viewBox="0 0 100 100">
+        <!-- 2. Cockpit content centered -->
+        <div class="overlay-content">
+          <!-- Giant Glowing Ring with Count Inside -->
+          <div class="glow-pulse-ring" :class="{ 'pulse-ring--go': countdown === 0 }">
+            <svg class="ring-svg" viewBox="0 0 100 100">
               <circle class="ring-track" cx="50" cy="50" r="45"></circle>
               <circle 
                 class="ring-active-bar" 
@@ -21,14 +19,14 @@
                 :stroke-dasharray="strokeDashArrayVal"
               ></circle>
             </svg>
-
-            <!-- Foco Central: Número o SALIDA -->
-            <div class="hud-center-display">
+            
+            <div class="center-number-display">
               <div 
-                class="hud-huge-number" 
+                class="giant-plate-number" 
+                :key="countdown"
                 :class="{ 
-                  'animate-tick-orange': countdown > 0, 
-                  'animate-go-green': countdown === 0 
+                  'number--tick': countdown > 0, 
+                  'number--go': countdown === 0 
                 }"
               >
                 {{ countdownText }}
@@ -36,15 +34,26 @@
             </div>
           </div>
 
-          <!-- Detalles de Estado de Carrera -->
-          <div class="hud-meta-plate">
-            <span class="hud-status-title" :class="{ 'hud-status-title--go': countdown === 0 }">
-              {{ countdown === 0 ? '¡PISTA LIBRE!' : 'PRESURIZANDO MOTORES' }}
-            </span>
-            <div class="hud-telemetry-row">
-              <span class="sensor-indicator animate-ping-sensor"></span>
-              <span class="telemetry-log">STAGE READY • LAUNCH DETECTED</span>
+          <!-- Bottom Telemetry Card styled as finished overlay panel -->
+          <div class="telemetry-card" :class="{ 'card--go': countdown === 0 }">
+            <!-- Diagonal Hazard Strip Header Decor -->
+            <div class="hazard-stripe-decor" :class="{ 'decor--go': countdown === 0 }"></div>
+
+            <div class="card-inner">
+              <div class="status-msg">
+                {{ countdown === 0 ? '¡SALIDA INMEDIATA!' : 'PRESURIZANDO MOTORES' }}
+              </div>
+              <div class="telemetry-log">
+                <span class="pulse-indicator" :class="{ 'indicator--go': countdown === 0 }"></span>
+                <span>SYSTEM STATUS: {{ countdown === 0 ? 'LAUNCH OK' : 'STAGE READY' }}</span>
+              </div>
             </div>
+
+            <!-- Corners decoration -->
+            <div class="corner-mark top-left"></div>
+            <div class="corner-mark top-right"></div>
+            <div class="corner-mark bottom-left"></div>
+            <div class="corner-mark bottom-right"></div>
           </div>
         </div>
       </div>
@@ -61,16 +70,11 @@ const props = defineProps({
 });
 
 const countdownText = computed(() => {
-  if (props.countdown === 0) return '¡SALIDA!';
+  if (props.countdown === 0) return 'GO!';
   return props.countdown;
 });
 
-// Calculate radial stroke dasharray based on countdown:
-// Radius is 45, Circumference is 2 * Math.PI * 45 = 282.74
-// 3 left -> 94 active (282.74 * (1/3))
-// 2 left -> 188 active
-// 1 left -> 282 active
-// 0 left -> 282 active (full ring)
+// Circular dash calculations
 const strokeDashArrayVal = computed(() => {
   if (props.countdown === 0) return '283 283';
   const val = ((4 - props.countdown) / 3) * 283;
@@ -79,142 +83,128 @@ const strokeDashArrayVal = computed(() => {
 </script>
 
 <style scoped>
-/* Contenedor Principal con desenfoque de velocidad */
 .countdown-overlay {
   position: fixed;
   inset: 0;
-  background: #020203;
+  background: rgba(2, 2, 2, 0.98);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 99999;
+  z-index: 100010;
   overflow: hidden;
-  color: #FFFFFF;
+  color: #ffffff;
   padding: 16px;
   font-family: 'Space Grotesk', sans-serif;
-  transition: background-color 0.3s ease;
 }
 
-.overlay--go {
-  background: #010805 !important;
-}
-
-/* Efectos de fondo del HUD */
-.hud-bg-effects {
+/* Grid Editorial Background */
+.overlay-grid-bg {
   position: absolute;
   inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 94, 0, 0.02) 1.5px, transparent 1.5px), 
+    linear-gradient(90deg, rgba(255, 94, 0, 0.02) 1.5px, transparent 1.5px);
+  background-size: 30px 30px;
   z-index: 1;
+  opacity: 0.8;
 }
 
-/* Textura de bandera a cuadros gigante */
-.check-flag-overlay {
+/* Diagonal Background Wipe */
+.overlay-slanted-wipe {
   position: absolute;
-  inset: 0;
-  background-image: 
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 20px, transparent 20px, transparent 40px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 20px, transparent 20px, transparent 40px);
-  opacity: 0.6;
-  transition: opacity 0.3s;
-}
-
-.check-flag-overlay--active {
-  background-image: 
-    repeating-linear-gradient(45deg, rgba(16, 185, 129, 0.02) 0px, rgba(16, 185, 129, 0.02) 20px, transparent 20px, transparent 40px),
-    repeating-linear-gradient(-45deg, rgba(16, 185, 129, 0.02) 0px, rgba(16, 185, 129, 0.02) 20px, transparent 20px, transparent 40px);
-  opacity: 1;
-}
-
-/* Línea de escaneo láser roja/verde */
-.hud-scanner-line {
-  position: absolute;
+  top: 0;
   left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255, 94, 0, 0.4), transparent);
-  animation: scan-vertical 3s infinite linear;
+  width: 140vw;
+  height: 100%;
+  background: radial-gradient(circle at 75% 20%, rgba(255, 94, 0, 0.15) 0%, transparent 60%),
+              #0a0a0a;
+  border-left: 6px solid #ff5e00;
+  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.95);
+  transform: skewX(-15deg) translateX(-20vw);
+  z-index: 2;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.overlay--go .hud-scanner-line {
-  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent);
+.slanted-wipe--go {
+  background: radial-gradient(circle at 75% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+              #060d09;
+  border-left-color: #10b981;
+  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.95), 0 0 50px rgba(16, 185, 129, 0.1);
 }
 
-@keyframes scan-vertical {
-  0% { top: -10%; }
-  100% { top: 110%; }
-}
-
-.hud-cockpit-box {
+/* Content layout */
+.overlay-content {
   position: relative;
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  justify-content: center;
+  gap: 2.5rem;
   width: 100%;
+  height: 100%;
+  text-align: center;
 }
 
-/* Tacómetro Circular */
-.hud-tachometer-circle {
+/* Glowing Pulse Ring */
+.glow-pulse-ring {
   position: relative;
-  width: clamp(240px, 60vw, 380px);
-  height: clamp(240px, 60vw, 380px);
-  border-radius: 50%;
-  background: radial-gradient(circle, #0e0f12 0%, #060708 100%);
-  border: 4px solid #1a1c22;
-  box-shadow: 
-    0 25px 60px rgba(0, 0, 0, 0.8),
-    inset 0 0 25px rgba(0, 0, 0, 0.9),
-    0 0 40px rgba(255, 94, 0, 0.05);
+  width: clamp(240px, 48vw, 340px);
+  height: clamp(240px, 48vw, 340px);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  animation: pulseRing 1.8s ease-in-out infinite;
 }
 
-.tachometer--go {
-  border-color: #10B981;
-  box-shadow: 
-    0 25px 60px rgba(0, 0, 0, 0.8),
-    inset 0 0 35px rgba(16, 185, 129, 0.15),
-    0 0 50px rgba(16, 185, 129, 0.2);
+@keyframes pulseRing {
+  0%, 100% { filter: drop-shadow(0 0 15px rgba(255, 94, 0, 0.25)); }
+  50% { filter: drop-shadow(0 0 35px rgba(255, 94, 0, 0.55)); }
 }
 
-.hud-svg-ring {
+.pulse-ring--go {
+  animation: pulseRingGo 1.8s ease-in-out infinite;
+}
+
+@keyframes pulseRingGo {
+  0%, 100% { filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.3)); }
+  50% { filter: drop-shadow(0 0 35px rgba(16, 185, 129, 0.6)); }
+}
+
+.ring-svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  transform: rotate(-90deg); /* Start from top */
+  transform: rotate(-90deg);
 }
 
 .ring-track {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.02);
-  stroke-width: 6;
+  stroke: rgba(255, 255, 255, 0.03);
+  stroke-width: 4;
 }
 
 .ring-active-bar {
   fill: none;
-  stroke: #FF5E00;
-  stroke-width: 6;
+  stroke: #ff5e00;
+  stroke-width: 5;
   stroke-linecap: round;
-  transition: stroke-dasharray 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  filter: drop-shadow(0 0 8px rgba(255, 94, 0, 0.6));
+  transition: stroke-dasharray 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ring-active-bar--go {
-  stroke: #10B981;
-  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
+  stroke: #10b981;
 }
 
-.hud-center-display {
+.center-number-display {
   position: relative;
   z-index: 5;
 }
 
-.hud-huge-number {
-  font-family: 'Space Grotesk', sans-serif;
+/* Giant Number */
+.giant-plate-number {
+  font-family: 'Space Grotesk', 'Impact', sans-serif;
   font-weight: 950;
   line-height: 1;
   font-style: italic;
@@ -222,99 +212,150 @@ const strokeDashArrayVal = computed(() => {
   user-select: none;
 }
 
-.animate-tick-orange {
-  font-size: clamp(90px, 20vw, 150px);
-  color: #FF5E00;
-  background: linear-gradient(180deg, #FFFFFF 30%, #FF5E00 100%);
+.number--tick {
+  font-size: clamp(90px, 16vw, 130px);
+  background: linear-gradient(135deg, #ffffff 30%, #ff5e00 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 5px 15px rgba(255, 94, 0, 0.4));
-  animation: tick-scale-in 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
+  animation: tickScale 0.95s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
 }
 
-.animate-go-green {
-  font-size: clamp(54px, 12vw, 84px);
-  color: #10B981;
-  background: linear-gradient(180deg, #FFFFFF 20%, #10B981 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 10px 25px rgba(16, 185, 129, 0.6));
-  animation: go-blast-scale 0.4s infinite alternate ease-in-out;
-  letter-spacing: 1px;
-}
-
-/* Placa inferior de estado */
-.hud-meta-plate {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.hud-status-title {
-  font-size: clamp(10px, 2.5vw, 12px);
-  font-weight: 900;
-  letter-spacing: 4px;
-  color: #FF5E00;
-  text-transform: uppercase;
-  background: rgba(255, 94, 0, 0.08);
-  border: 1px solid rgba(255, 94, 0, 0.2);
-  padding: 4px 14px;
-  border-radius: 8px;
-}
-
-.hud-status-title--go {
-  color: #10B981;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  letter-spacing: 5px;
-}
-
-.hud-telemetry-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: clamp(9px, 2vw, 10px);
-  color: #4a5568;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.sensor-indicator {
-  width: 6px;
-  height: 6px;
-  background: #FF5E00;
-  border-radius: 50%;
-}
-
-.overlay--go .sensor-indicator {
-  background: #10B981;
-}
-
-.animate-ping-sensor {
-  animation: sensor-ping-anim 1s infinite alternate;
-}
-
-/* Animaciones */
-@keyframes tick-scale-in {
-  0% { transform: scale(0.7) rotate(-10deg); opacity: 0; }
-  40% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+@keyframes tickScale {
+  0% { transform: scale(0.6) rotate(-15deg); opacity: 0; filter: blur(4px); }
+  50% { transform: scale(1.15) rotate(5deg); opacity: 1; filter: blur(0); }
   100% { transform: scale(1.0) rotate(0); }
 }
 
-@keyframes go-blast-scale {
-  0% { transform: scale(0.95) skewX(-3deg); }
-  100% { transform: scale(1.15) skewX(3deg); }
+.number--go {
+  font-size: clamp(54px, 10vw, 76px);
+  background: linear-gradient(135deg, #ffffff 20%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: goBlast 0.4s infinite alternate ease-in-out;
+  letter-spacing: 2px;
 }
 
-@keyframes sensor-ping-anim {
-  from { opacity: 0.3; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1.3); }
+@keyframes goBlast {
+  0% { transform: scale(0.95) skewX(-4deg); }
+  100% { transform: scale(1.12) skewX(4deg); }
 }
 
+/* Bottom Telemetry Card */
+.telemetry-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: rgba(10, 10, 10, 0.85);
+  border: 1px solid rgba(255, 94, 0, 0.25);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.5s ease;
+}
+
+.card--go {
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7), 0 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.card-inner {
+  padding: 1.2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-msg {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #ff5e00;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 94, 0, 0.2);
+}
+
+.card--go .status-msg {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.telemetry-log {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.pulse-indicator {
+  width: 6px;
+  height: 6px;
+  background: #ff5e00;
+  border-radius: 50%;
+  animation: indicatorPulse 0.8s infinite alternate;
+}
+
+.indicator--go {
+  background: #10b981;
+}
+
+@keyframes indicatorPulse {
+  from { opacity: 0.3; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
+}
+
+/* Hazard Tape Header Decor */
+.hazard-stripe-decor {
+  height: 8px;
+  width: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    #000,
+    #000 6px,
+    #ff5e00 6px,
+    #ff5e00 12px
+  );
+}
+
+.decor--go {
+  background: repeating-linear-gradient(
+    -45deg,
+    #000,
+    #000 6px,
+    #10b981 6px,
+    #10b981 12px
+  );
+}
+
+/* Corner markers style */
+.telemetry-card .corner-mark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid #ff5e00;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.card--go .corner-mark {
+  border-color: #10b981;
+}
+
+.telemetry-card .corner-mark.top-left { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+.telemetry-card .corner-mark.top-right { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+.telemetry-card .corner-mark.bottom-left { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+.telemetry-card .corner-mark.bottom-right { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+
+/* Transitions */
 .zoom-fade-enter-active,
 .zoom-fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s ease;
 }
 
 .zoom-fade-enter-from,
