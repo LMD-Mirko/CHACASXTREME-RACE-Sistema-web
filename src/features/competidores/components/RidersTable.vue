@@ -100,25 +100,21 @@
             />
           </AppTooltip>
 
-          <AppTooltip content="Enviar link para completar ficha">
-            <AppButton
-              variant="icon-action"
-              icon="link"
-              class="btn-profile-link"
-              @click="$emit('share-profile', item)"
-              aria-label="Enlace para completar ficha"
-            />
-          </AppTooltip>
+          <ShareLinkPopover
+            title="Completar ficha"
+            ariaLabel="Compartir enlace completar ficha"
+            trigger-icon="link"
+            :load-link="() => loadProfileLink(item)"
+            @copied="$emit('link-copied', $event)"
+          />
 
-          <AppTooltip content="Enviar link Mi carrera (dossier)">
-            <AppButton
-              variant="icon-action"
-              icon="folder_shared"
-              class="btn-dossier-link"
-              @click="$emit('share-dossier', item)"
-              aria-label="Enlace Mi carrera"
-            />
-          </AppTooltip>
+          <ShareLinkPopover
+            title="Mi carrera"
+            ariaLabel="Compartir enlace Mi carrera"
+            trigger-icon="folder_shared"
+            :load-link="() => loadDossierLink(item)"
+            @copied="$emit('link-copied', $event)"
+          />
 
           <AppTooltip content="Eliminar piloto" align="right">
             <AppButton
@@ -136,12 +132,13 @@
       <template #card="{ item }">
         <RiderCard
           :rider="item"
+          :load-profile-link="loadProfileLink"
+          :load-dossier-link="loadDossierLink"
           @edit="$emit('edit', item)"
           @change-status="$emit('change-status', item)"
           @view-detail="$emit('view-detail', item)"
           @assign-plate="$emit('assign-plate', item)"
-          @share-profile="$emit('share-profile', item)"
-          @share-dossier="$emit('share-dossier', item)"
+          @link-copied="$emit('link-copied', $event)"
           @delete="$emit('delete', item)"
         />
       </template>
@@ -157,13 +154,24 @@
 <script setup>
 import { getStatusStyle } from '../../../core/constants/riderStatusStyles';
 import { storageUrl } from '../../../core/network/storageUrl';
+import ShareLinkPopover from '../../../components/common/ShareLinkPopover.vue';
 import RiderCard from './RiderCard.vue';
 
-defineProps({
-  riders: { type: Array, required: true }
+const props = defineProps({
+  riders: { type: Array, required: true },
+  loadProfileLink: { type: Function, required: true },
+  loadDossierLink: { type: Function, required: true },
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile', 'share-dossier']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'link-copied']);
+
+function loadProfileLink(item) {
+  return props.loadProfileLink(item);
+}
+
+function loadDossierLink(item) {
+  return props.loadDossierLink(item);
+}
 
 const headers = [
   { key: 'photo', label: 'Foto' },

@@ -91,25 +91,21 @@
           />
         </AppTooltip>
 
-        <AppTooltip content="Link ficha">
-          <AppButton
-            variant="icon-action"
-            icon="link"
-            class="btn-profile-link"
-            @click="$emit('share-profile', rider)"
-            aria-label="Enlace para completar ficha"
-          />
-        </AppTooltip>
+        <ShareLinkPopover
+          title="Completar ficha"
+          ariaLabel="Compartir enlace completar ficha"
+          trigger-icon="link"
+          :load-link="() => loadProfileLink(rider)"
+          @copied="$emit('link-copied', $event)"
+        />
 
-        <AppTooltip content="Mi carrera">
-          <AppButton
-            variant="icon-action"
-            icon="folder_shared"
-            class="btn-dossier-link"
-            @click="$emit('share-dossier', rider)"
-            aria-label="Enlace Mi carrera"
-          />
-        </AppTooltip>
+        <ShareLinkPopover
+          title="Mi carrera"
+          ariaLabel="Compartir enlace Mi carrera"
+          trigger-icon="folder_shared"
+          :load-link="() => loadDossierLink(rider)"
+          @copied="$emit('link-copied', $event)"
+        />
 
         <AppTooltip content="Eliminar" align="right">
           <AppButton
@@ -129,12 +125,15 @@
 import { computed } from 'vue';
 import { getStatusStyle } from '../../../core/constants/riderStatusStyles';
 import { storageUrl } from '../../../core/network/storageUrl';
+import ShareLinkPopover from '../../../components/common/ShareLinkPopover.vue';
 
 const props = defineProps({
   rider: { type: Object, required: true },
+  loadProfileLink: { type: Function, required: true },
+  loadDossierLink: { type: Function, required: true },
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile', 'share-dossier']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'link-copied']);
 
 const statusStyle = computed(() => getStatusStyle(props.rider.race_status));
 

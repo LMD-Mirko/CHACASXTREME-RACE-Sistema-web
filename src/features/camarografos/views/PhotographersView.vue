@@ -41,9 +41,13 @@
               <button type="button" class="btn-ghost" title="Editar" @click="openEdit(row)">
                 <span class="material-icons">edit</span>
               </button>
-              <button type="button" class="btn-ghost" title="WhatsApp / copiar link" @click="shareLink(row)">
-                <span class="material-icons">sms</span>
-              </button>
+              <ShareLinkPopover
+                title="Enlace al panel"
+                ariaLabel="Compartir enlace de camarógrafo"
+                trigger-icon="link"
+                :load-link="() => loadAccessLink(row)"
+                @copied="onCopied"
+              />
             </td>
           </tr>
         </tbody>
@@ -80,6 +84,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
+import ShareLinkPopover from '../../../components/common/ShareLinkPopover.vue';
 import {
   listPhotographers,
   createPhotographer,
@@ -150,26 +155,15 @@ async function save() {
   }
 }
 
-async function shareLink(row) {
-  error.value = '';
-  try {
-    const data = await issuePhotographerAccessLink(row.id);
-    const url = data?.url;
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.value = `Link copiado: ${url}`;
-    } catch {
-      toast.value = url;
-    }
-    setTimeout(() => { toast.value = ''; }, 2800);
-    if (data.whatsapp_url) {
-      window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
-    }
-    await load();
-  } catch (e) {
-    error.value = e.friendlyMessage || e.message || 'No se pudo generar el link.';
-  }
+async function loadAccessLink(row) {
+  const data = await issuePhotographerAccessLink(row.id);
+  await load();
+  return data;
+}
+
+function onCopied(url) {
+  toast.value = `Link copiado: ${url}`;
+  setTimeout(() => { toast.value = ''; }, 2800);
 }
 
 onMounted(load);
@@ -178,7 +172,7 @@ onMounted(load);
 <style scoped>
 .view-container {
   padding: 1.25rem 1rem 2rem;
-  color: #f5f5f5;
+  color: var(--color-text-primary);
 }
 .page-head {
   display: flex;
@@ -190,10 +184,11 @@ onMounted(load);
 .page-head h1 {
   margin: 0 0 0.35rem;
   font-size: 1.45rem;
+  color: var(--color-text-primary);
 }
 .page-head p {
   margin: 0;
-  color: #a3a3a3;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   max-width: 40rem;
 }
@@ -210,30 +205,44 @@ onMounted(load);
   cursor: pointer;
 }
 .btn-ghost {
-  background: transparent;
-  border: 1px solid #333;
-  color: #eee;
-  border-radius: 8px;
-  padding: 0.35rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--color-input-bg, var(--color-surface, transparent));
+  border: 1px solid var(--color-border, #d4d4d4);
+  color: var(--color-text-primary);
+  border-radius: 10px;
   cursor: pointer;
 }
 .table-wrap {
   overflow: auto;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--color-border, #e5e5e5);
   border-radius: 12px;
+  background: var(--color-surface, transparent);
 }
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.92rem;
+  color: var(--color-text-primary);
 }
 th, td {
   text-align: left;
   padding: 0.75rem 0.85rem;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--color-border, #ececec);
+  color: var(--color-text-primary);
 }
-th { color: #888; font-weight: 600; }
-.actions { display: flex; gap: 0.35rem; }
+th {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+.actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
 .pill {
   font-size: 0.72rem;
   font-weight: 700;
@@ -241,24 +250,31 @@ th { color: #888; font-weight: 600; }
   letter-spacing: 0.04em;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: #333;
-  color: #aaa;
+  background: color-mix(in srgb, var(--color-text-secondary) 18%, transparent);
+  color: var(--color-text-secondary);
 }
-.pill.on { background: #1a3d2a; color: #7dffa0; }
-.error { color: #ff8a80; }
+.pill.on {
+  background: rgba(34, 160, 90, 0.16);
+  color: #1b8a45;
+}
+.error { color: #d32f2f; }
 .toast {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e5e5);
+  color: var(--color-text-primary);
   padding: 0.65rem 0.85rem;
   border-radius: 10px;
   font-size: 0.85rem;
   word-break: break-all;
 }
-.empty, .loading { padding: 1.5rem; color: #888; }
+.empty, .loading {
+  padding: 1.5rem;
+  color: var(--color-text-secondary);
+}
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.72);
+  background: rgba(0,0,0,0.55);
   display: grid;
   place-items: center;
   z-index: 80;
@@ -266,22 +282,33 @@ th { color: #888; font-weight: 600; }
 }
 .modal {
   width: min(420px, 100%);
-  background: #141414;
-  border: 1px solid #333;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e5e5);
+  color: var(--color-text-primary);
   border-radius: 14px;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
 }
-.modal h2 { margin: 0; font-size: 1.15rem; }
-.modal label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: #bbb; }
+.modal h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+}
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
 .modal input {
-  background: #0a0a0a;
-  border: 1px solid #333;
+  background: var(--color-input-bg, #fafafa);
+  border: 1px solid var(--color-border, #ddd);
   border-radius: 8px;
   padding: 0.65rem 0.75rem;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>

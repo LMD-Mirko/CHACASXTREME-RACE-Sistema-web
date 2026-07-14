@@ -26,12 +26,13 @@
       </div>
       <RidersTable
         :riders="riders"
+        :load-profile-link="loadProfileShare"
+        :load-dossier-link="loadDossierShare"
         @edit="openEditModal"
         @change-status="openStatusModal"
         @view-detail="openDetailModal"
         @assign-plate="openAssignPlateModal"
-        @share-profile="handleShareProfile"
-        @share-dossier="handleShareDossier"
+        @link-copied="onLinkCopied"
         @delete="handleDelete"
       />
     </div>
@@ -155,45 +156,20 @@ function showShareToast(message) {
   }, 2800);
 }
 
-async function handleShareProfile(rider) {
+async function loadProfileShare(rider) {
   const data = await getProfileLink(rider.id);
-  if (!data?.token) return;
-
-  // Completar ficha vive en Sistema-web (ruta pública)
-  const url = data.url || `${window.location.origin}/completar-perfil?token=${encodeURIComponent(data.token)}`;
-  const waText = `Hola ${rider.full_name}! Sube tu foto rider y completa lo que falta para Chacas Xtreme Race.\n\nEntra aquí (enlace personal):\n${url}`;
-  const phone = String(rider.emergency_phone || '').replace(/\D+/g, '');
-  const waPhone = phone ? (phone.startsWith('51') ? phone : `51${phone}`) : '';
-
-  try {
-    await navigator.clipboard.writeText(url);
-    showShareToast(`Link personal copiado: ${url}`);
-  } catch {
-    showShareToast(url);
-  }
-
-  if (data.whatsapp_url) {
-    window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
-  } else if (waPhone) {
-    window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`, '_blank', 'noopener,noreferrer');
-  }
+  if (!data) throw new Error('No se pudo generar el enlace de ficha.');
+  return data;
 }
 
-async function handleShareDossier(rider) {
+async function loadDossierShare(rider) {
   const data = await getDossierLink(rider.id);
-  if (!data?.url && !data?.token) return;
+  if (!data) throw new Error('No se pudo generar el enlace de Mi carrera.');
+  return data;
+}
 
-  const url = data.url;
-  try {
-    await navigator.clipboard.writeText(url);
-    showShareToast(`Link Mi carrera copiado: ${url}`);
-  } catch {
-    showShareToast(url);
-  }
-
-  if (data.whatsapp_url) {
-    window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
-  }
+function onLinkCopied(url) {
+  showShareToast(`Link copiado: ${url}`);
 }
 
 async function handleSave({ id, data }) {
