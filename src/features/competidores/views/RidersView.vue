@@ -79,6 +79,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRiders } from '../composables/useRiders';
+import {
+  dossierThanksMessage,
+  profileCompleteMessage,
+  withClientWhatsApp,
+} from '../../../core/share/whatsappMessages.js';
 import RidersFilters from '../components/RidersFilters.vue';
 import RidersTable from '../components/RidersTable.vue';
 import RiderFormModal from '../components/RiderFormModal.vue';
@@ -159,13 +164,27 @@ function showShareToast(message) {
 async function loadProfileShare(rider) {
   const data = await getProfileLink(rider.id);
   if (!data) throw new Error('No se pudo generar el enlace de ficha.');
-  return data;
+  return withClientWhatsApp(
+    {
+      ...data,
+      rider: data?.rider || { full_name: rider.full_name },
+      phone: data?.phone || rider.emergency_phone,
+    },
+    profileCompleteMessage,
+  );
 }
 
 async function loadDossierShare(rider) {
   const data = await getDossierLink(rider.id);
   if (!data) throw new Error('No se pudo generar el enlace de Mi carrera.');
-  return data;
+  return withClientWhatsApp(
+    {
+      ...data,
+      rider: data?.rider || { full_name: rider.full_name },
+      phone: data?.phone || rider.emergency_phone,
+    },
+    dossierThanksMessage,
+  );
 }
 
 function onLinkCopied(url) {

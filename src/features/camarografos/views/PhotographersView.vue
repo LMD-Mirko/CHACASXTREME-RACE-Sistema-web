@@ -86,6 +86,10 @@
 import { onMounted, reactive, ref } from 'vue';
 import ShareLinkPopover from '../../../components/common/ShareLinkPopover.vue';
 import {
+  photographerAccessMessage,
+  withClientWhatsApp,
+} from '../../../core/share/whatsappMessages.js';
+import {
   listPhotographers,
   createPhotographer,
   updatePhotographer,
@@ -158,7 +162,14 @@ async function save() {
 async function loadAccessLink(row) {
   const data = await issuePhotographerAccessLink(row.id);
   await load();
-  return data;
+  return withClientWhatsApp(
+    {
+      ...data,
+      photographer: data?.photographer || row,
+      phone: data?.phone || row.phone,
+    },
+    photographerAccessMessage,
+  );
 }
 
 function onCopied(url) {
