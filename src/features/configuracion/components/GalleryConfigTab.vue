@@ -5,10 +5,10 @@
         <h2>Galería web</h2>
         <p>Imágenes de marketing (misma galería del panel Filament).</p>
       </div>
-      <button type="button" class="btn-primary" @click="openCreate">
+      <AppButton @click="openCreate">
         <span class="material-icons">add_photo_alternate</span>
         Subir
-      </button>
+      </AppButton>
     </header>
 
     <p v-if="toast" class="toast">{{ toast }}</p>
@@ -23,47 +23,91 @@
           <span>{{ item.image_type?.name || item.imageType?.name || '—' }}</span>
         </div>
         <div class="actions">
-          <button type="button" class="btn-ghost" @click="openEdit(item)">Editar</button>
-          <button type="button" class="btn-danger" @click="remove(item)">Eliminar</button>
+          <AppButton variant="secondary" @click="openEdit(item)">Editar</AppButton>
+          <AppButton variant="danger" @click="remove(item)">Eliminar</AppButton>
         </div>
       </article>
       <p v-if="!items.length" class="muted">No hay imágenes aún.</p>
     </div>
 
-    <div v-if="modalOpen" class="backdrop" @click.self="modalOpen = false">
-      <form class="modal" @submit.prevent="save">
-        <h3>{{ editing ? 'Editar imagen' : 'Subir imagen' }}</h3>
-        <label>
-          <span>Tipo</span>
-          <select v-model="form.image_type_id" required>
-            <option disabled value="">Selecciona…</option>
-            <option v-for="t in types" :key="t.id" :value="t.id">{{ t.name }}</option>
-          </select>
-        </label>
-        <label>
-          <span>Título</span>
-          <input v-model.trim="form.title" />
-        </label>
-        <label>
-          <span>Descripción</span>
-          <textarea v-model.trim="form.description" rows="3" />
-        </label>
-        <label>
-          <span>Archivo {{ editing ? '(opcional)' : '' }}</span>
-          <input type="file" accept="image/*" @change="onFile" :required="!editing" />
-        </label>
-        <p v-if="modalError" class="error">{{ modalError }}</p>
-        <div class="modal-actions">
-          <button type="button" class="btn-ghost" @click="modalOpen = false">Cancelar</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
+    <AppModal
+      :is-open="modalOpen"
+      :title="editing ? 'Editar imagen' : 'Subir imagen'"
+      max-width="520px"
+      allow-overflow
+      @close="modalOpen = false"
+    >
+      <form id="gallery-form" class="gallery-form" @submit.prevent="save">
+        <div class="form-group">
+          <label>Tipo *</label>
+          <AppSelect
+            v-model="form.image_type_id"
+            :options="typeOptions"
+            placeholder="Selecciona un tipo"
+            icon="category"
+          />
         </div>
+
+        <div class="form-group">
+          <label for="gallery_title">Título</label>
+          <AppInput
+            id="gallery_title"
+            v-model="form.title"
+            placeholder="Título opcional"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="gallery_description">Descripción</label>
+          <textarea
+            id="gallery_description"
+            v-model="form.description"
+            class="app-textarea"
+            rows="3"
+            placeholder="Descripción opcional"
+          />
+        </div>
+
+        <div class="file-upload">
+          <span class="field-label">Archivo {{ editing ? '(opcional al editar)' : '*' }}</span>
+          <div class="file-row">
+            <button type="button" class="file-preview" @click="triggerFileInput">
+              <img v-if="displayPreview" :src="displayPreview" alt="Vista previa" />
+              <div v-else class="file-placeholder">
+                <span class="material-icons">add_photo_alternate</span>
+                <span>Foto</span>
+              </div>
+            </button>
+            <div class="file-actions">
+              <AppButton type="button" variant="secondary" @click="triggerFileInput">
+                <span class="material-icons">upload_file</span>
+                {{ imageFileName || 'Seleccionar archivo' }}
+              </AppButton>
+              <p class="help">JPG, PNG o WEBP. Máx. 10MB.</p>
+            </div>
+          </div>
+          <input
+            ref="fileInput"
+            type="file"
+            class="hidden-file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            @change="onFile"
+          />
+        </div>
+
+        <p v-if="modalError" class="error">{{ modalError }}</p>
       </form>
-    </div>
+
+      <template #footer>
+        <AppButton variant="secondary" @click="modalOpen = false">Cancelar</AppButton>
+        <AppButton type="submit" form="gallery-form" :loading="saving">Guardar</AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   listGalleryTypes,
   listGalleryAdmin,
@@ -82,11 +126,24 @@ const modalOpen = ref(false);
 const modalError = ref('');
 const editing = ref(null);
 const imageFile = ref(null);
+const previewUrl = ref('');
+const fileInput = ref(null);
+
 const form = reactive({
   image_type_id: '',
   title: '',
   description: '',
 });
+
+const typeOptions = computed(() =>
+  (types.value || []).map((t) => ({ value: t.id, label: t.name })),
+);
+
+const displayPreview = computed(
+  () => previewUrl.value || editing.value?.image_url || '',
+);
+
+const imageFileName = computed(() => imageFile.value?.name || '');
 
 async function load() {
   loading.value = true;
@@ -108,6 +165,9 @@ function openCreate() {
   form.title = '';
   form.description = '';
   imageFile.value = null;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = '';
+  if (fileInput.value) fileInput.value.value = '';
   modalError.value = '';
   modalOpen.value = true;
 }
@@ -118,18 +178,29 @@ function openEdit(item) {
   form.title = item.title || '';
   form.description = item.description || '';
   imageFile.value = null;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = '';
+  if (fileInput.value) fileInput.value.value = '';
   modalError.value = '';
   modalOpen.value = true;
 }
 
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
 function onFile(e) {
-  imageFile.value = e.target.files?.[0] || null;
+  const file = e.target.files?.[0] || null;
+  imageFile.value = file;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = file ? URL.createObjectURL(file) : '';
 }
 
 async function save() {
   saving.value = true;
   modalError.value = '';
   try {
+    if (!form.image_type_id) throw new Error('Selecciona un tipo.');
     const payload = {
       image_type_id: form.image_type_id,
       title: form.title || null,
@@ -166,43 +237,190 @@ onMounted(load);
 </script>
 
 <style scoped>
-.media-tab { display: flex; flex-direction: column; gap: 1rem; }
-.media-head { display: flex; justify-content: space-between; gap: 1rem; }
-.media-head h2 { margin: 0 0 0.25rem; font-size: 1.15rem; color: var(--color-text-primary); }
-.media-head p { margin: 0; color: var(--color-text-secondary); font-size: 0.88rem; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }
+.media-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.media-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.media-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+}
+
+.media-head p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
 .thumb {
-  border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden;
-  background: var(--color-surface); display: flex; flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
 }
-.thumb img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: var(--color-input-bg); }
-.info { padding: 0.55rem 0.65rem; display: flex; flex-direction: column; gap: 0.15rem; }
-.info strong { font-size: 0.85rem; color: var(--color-text-primary); }
-.info span { font-size: 0.72rem; color: var(--color-text-secondary); }
-.actions { display: flex; gap: 0.35rem; padding: 0 0.55rem 0.55rem; }
-.btn-primary, .btn-ghost, .btn-danger {
-  border-radius: 10px; border: 1px solid var(--color-border); padding: 0.4rem 0.7rem;
-  font-weight: 700; cursor: pointer; font-size: 0.78rem;
+
+.thumb img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--color-input-bg);
 }
-.btn-primary { background: #ff5e00; color: #fff; border-color: #ff5e00; display: inline-flex; gap: 0.25rem; align-items: center; }
-.btn-ghost { background: var(--color-input-bg); color: var(--color-text-primary); }
-.btn-danger { background: transparent; color: #dc2626; border-color: rgba(220,38,38,.35); }
-.backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50;
-  display: grid; place-items: center; padding: 1rem;
+
+.info {
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
-.modal {
-  width: min(480px, 100%); background: var(--color-surface); color: var(--color-text-primary);
-  border: 1px solid var(--color-border); border-radius: 16px; padding: 1.1rem;
-  display: flex; flex-direction: column; gap: 0.7rem;
+
+.info strong {
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
 }
-label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; }
-input, select, textarea {
-  border: 1px solid var(--color-border); border-radius: 10px; padding: 0.55rem 0.7rem;
-  background: var(--color-input-bg); color: var(--color-text-primary); font: inherit;
+
+.info span {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
 }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+.actions {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0 0.55rem 0.55rem;
+  flex-wrap: wrap;
+}
+
+.gallery-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group > label,
+.field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.app-textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--color-input-bg);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 84px;
+}
+
+.app-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.file-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.file-preview {
+  width: 96px;
+  height: 72px;
+  border-radius: 12px;
+  border: 2px dashed var(--color-border);
+  background: var(--color-input-bg);
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: border-color 0.2s ease;
+}
+
+.file-preview:hover {
+  border-color: var(--color-primary);
+}
+
+.file-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.file-placeholder .material-icons {
+  font-size: 22px;
+}
+
+.file-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.help {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+}
+
+.hidden-file {
+  display: none;
+}
+
 .toast { color: #059669; font-weight: 700; }
-.error { color: #dc2626; font-size: 0.85rem; }
+.error { color: #dc2626; font-size: 0.85rem; margin: 0; }
 .muted { color: var(--color-text-secondary); }
+
+@media (max-width: 600px) {
+  .file-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 </style>

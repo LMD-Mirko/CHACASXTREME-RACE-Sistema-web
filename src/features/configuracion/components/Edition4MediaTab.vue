@@ -5,10 +5,10 @@
         <h2>Media 4ª edición — ZIP</h2>
         <p>Descarga originales de la competencia activa (igual que en Filament).</p>
       </div>
-      <button type="button" class="btn-ghost" :disabled="loading" @click="load">
+      <AppButton variant="secondary" :disabled="loading" @click="load">
         <span class="material-icons">refresh</span>
         Actualizar
-      </button>
+      </AppButton>
     </header>
 
     <p v-if="error" class="error">{{ error }}</p>
@@ -23,45 +23,48 @@
         <div class="stat"><span>Competidores</span><strong>{{ stats.competitor_photos ?? 0 }}</strong></div>
       </div>
 
-      <form class="form" @submit.prevent="download">
-        <label>
-          <span>Alcance</span>
-          <select v-model="form.scope">
-            <option value="all">Todo (competidores + general)</option>
-            <option value="general">Solo general</option>
-            <option value="competitors">Solo competidores</option>
-            <option value="competitor">Un competidor</option>
-          </select>
-        </label>
+      <form class="zip-form" @submit.prevent="download">
+        <div class="form-group">
+          <label>Alcance</label>
+          <AppSelect
+            v-model="form.scope"
+            :options="scopeOptions"
+            placeholder="Selecciona alcance"
+            icon="folder_open"
+          />
+        </div>
 
-        <label v-if="form.scope === 'competitor'">
-          <span>Competidor</span>
-          <select v-model="form.rider_id" required>
-            <option disabled value="">Selecciona…</option>
-            <option v-for="r in stats.riders || []" :key="r.id" :value="r.id">{{ r.label }}</option>
-          </select>
-        </label>
+        <div v-if="form.scope === 'competitor'" class="form-group">
+          <label>Competidor</label>
+          <AppSelect
+            v-model="form.rider_id"
+            :options="riderOptions"
+            placeholder="Selecciona un competidor"
+            icon="badge"
+          />
+        </div>
 
-        <label>
-          <span>Tipo</span>
-          <select v-model="form.media_type">
-            <option value="photo">Solo fotos</option>
-            <option value="video">Solo videos</option>
-            <option value="all">Fotos y videos</option>
-          </select>
-        </label>
+        <div class="form-group">
+          <label>Tipo</label>
+          <AppSelect
+            v-model="form.media_type"
+            :options="mediaTypeOptions"
+            placeholder="Selecciona tipo"
+            icon="perm_media"
+          />
+        </div>
 
-        <button type="submit" class="btn-primary" :disabled="downloading">
+        <AppButton type="submit" :loading="downloading" :disabled="downloading">
           <span class="material-icons">download</span>
           {{ downloading ? 'Generando ZIP…' : 'Descargar ZIP' }}
-        </button>
+        </AppButton>
       </form>
     </template>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   fetchEdition4MediaStats,
   downloadEdition4MediaZip,
@@ -71,11 +74,32 @@ const stats = ref({});
 const loading = ref(false);
 const downloading = ref(false);
 const error = ref('');
+
 const form = reactive({
   scope: 'all',
   media_type: 'photo',
   rider_id: '',
 });
+
+const scopeOptions = [
+  { value: 'all', label: 'Todo (competidores + general)' },
+  { value: 'general', label: 'Solo general' },
+  { value: 'competitors', label: 'Solo competidores' },
+  { value: 'competitor', label: 'Un competidor' },
+];
+
+const mediaTypeOptions = [
+  { value: 'photo', label: 'Solo fotos' },
+  { value: 'video', label: 'Solo videos' },
+  { value: 'all', label: 'Fotos y videos' },
+];
+
+const riderOptions = computed(() =>
+  (stats.value.riders || []).map((r) => ({
+    value: r.id,
+    label: r.label,
+  })),
+);
 
 async function load() {
   loading.value = true;
@@ -90,6 +114,11 @@ async function load() {
 }
 
 async function download() {
+  if (form.scope === 'competitor' && !form.rider_id) {
+    error.value = 'Selecciona un competidor.';
+    return;
+  }
+
   downloading.value = true;
   error.value = '';
   try {
@@ -99,7 +128,6 @@ async function download() {
       rider_id: form.scope === 'competitor' ? Number(form.rider_id) : null,
     });
   } catch (e) {
-    // Axios blob errors may hide JSON message
     let msg = e.friendlyMessage || e.message || 'No se pudo descargar.';
     try {
       if (e.response?.data instanceof Blob) {
@@ -118,44 +146,92 @@ onMounted(load);
 </script>
 
 <style scoped>
-.media-tab { display: flex; flex-direction: column; gap: 1rem; }
-.media-head { display: flex; justify-content: space-between; gap: 1rem; }
-.media-head h2 { margin: 0 0 0.25rem; font-size: 1.15rem; color: var(--color-text-primary); }
-.media-head p { margin: 0; color: var(--color-text-secondary); font-size: 0.88rem; }
+.media-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.media-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.media-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+}
+
+.media-head p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.6rem;
 }
+
 .stat {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 0.7rem 0.8rem;
   background: var(--color-surface);
-  display: flex; flex-direction: column; gap: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
-.stat span { font-size: 0.72rem; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
-.stat strong { color: var(--color-text-primary); font-size: 1rem; }
-.form {
-  display: flex; flex-direction: column; gap: 0.75rem;
-  max-width: 420px;
-  padding: 1rem;
+
+.stat span {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat strong {
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
+.zip-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 440px;
+  padding: 1.1rem;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--color-surface);
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
-label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; }
-select {
-  border: 1px solid var(--color-border); border-radius: 10px; padding: 0.55rem 0.7rem;
-  background: var(--color-input-bg); color: var(--color-text-primary);
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.btn-primary, .btn-ghost {
-  border-radius: 10px; border: 1px solid var(--color-border); padding: 0.55rem 0.85rem;
-  font-weight: 700; cursor: pointer; font-size: 0.85rem;
-  display: inline-flex; align-items: center; gap: 0.35rem; width: fit-content;
+
+.form-group > label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
-.btn-primary { background: #ff5e00; color: #fff; border-color: #ff5e00; }
-.btn-ghost { background: var(--color-input-bg); color: var(--color-text-primary); }
-.error { color: #dc2626; font-size: 0.85rem; }
-.muted { color: var(--color-text-secondary); }
+
+.error {
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.muted {
+  color: var(--color-text-secondary);
+}
 </style>
