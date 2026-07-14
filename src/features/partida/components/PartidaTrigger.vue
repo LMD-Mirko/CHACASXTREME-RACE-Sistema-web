@@ -7,7 +7,8 @@
           <!-- Advertencia de pilotos sin confirmar (Estilo Deportivo) -->
           <div v-if="!allActiveRidersPresent" class="presence-warning-badge">
             <span class="material-icons warning-icon-small">warning_amber</span>
-            <span>PRESENCIA INCOMPLETA: Pulsa sobre los pilotos para registrarlos.</span>
+            <span v-if="isFinalPhase">Marca DNS a los ausentes. El resto ya está confirmado.</span>
+            <span v-else>PRESENCIA INCOMPLETA: Pulsa sobre los pilotos para registrarlos.</span>
           </div>
 
           <label class="custom-checkbox-container" :class="{ 'checkbox-disabled': !allActiveRidersPresent || isSyncing }">
@@ -19,7 +20,7 @@
             />
             <span class="checkmark"></span>
             <span class="checkbox-label">
-              CONFIRMAR GRILLA COMPLETA (PASAR LISTA)
+              {{ isFinalPhase ? 'CONFIRMAR AUSENTES Y LARGAR FINAL' : 'CONFIRMAR GRILLA COMPLETA (PASAR LISTA)' }}
             </span>
           </label>
         </div>
@@ -52,7 +53,8 @@ defineProps({
   raceState: { type: String, required: true },
   countdown: { type: Number, required: true },
   loading: { type: Boolean, default: false },
-  isSyncing: { type: Boolean, default: false }
+  isSyncing: { type: Boolean, default: false },
+  isFinalPhase: { type: Boolean, default: false },
 });
 
 defineEmits(['update:isGridConfirmed', 'launch']);

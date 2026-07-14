@@ -1,5 +1,5 @@
 import { ref, reactive, watch } from 'vue';
-import { getRiders, createRider, updateRider, updateRiderStatus, retireRider, revertRetireRider, deleteRider } from '../services/riderService';
+import { getRiders, createRider, updateRider, updateRiderStatus, retireRider, revertRetireRider, deleteRider, assignRiderPlate, issueRiderProfileLink } from '../services/riderService';
 import { getCategories } from '../services/categoryService';
 
 // Estado reactivo global único (Singleton) para compartir entre el Header y la Vista
@@ -11,6 +11,7 @@ const errorMessage = ref('');
 const filters = reactive({
   search: '',
   category_id: '',
+  incomplete_only: false,
 });
 
 export function useRiders() {
@@ -24,7 +25,11 @@ export function useRiders() {
       if (filters.search.trim()) activeFilters.search = filters.search.trim();
       if (filters.category_id) activeFilters.category_id = filters.category_id;
       
-      riders.value = await getRiders(activeFilters);
+      let list = await getRiders(activeFilters);
+      if (filters.incomplete_only) {
+        list = list.filter((r) => r.profile_incomplete);
+      }
+      riders.value = list;
     } catch (error) {
       errorMessage.value = error.friendlyMessage || 'Error al obtener la lista de competidores.';
     } finally {
@@ -105,6 +110,33 @@ export function useRiders() {
     }
   }
 
+  // Asigna o reasigna número de placa
+  async function assignPlate(riderId, plateNumber) {
+    isLoading.value = true;
+    errorMessage.value = '';
+    try {
+      await assignRiderPlate(riderId, plateNumber);
+      await fetchRiders();
+      return true;
+    } catch (error) {
+      errorMessage.value = error.friendlyMessage || 'Error al asignar el número de placa.';
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Enlace para que el piloto complete su ficha
+  async function getProfileLink(riderId, regenerate = false) {
+    errorMessage.value = '';
+    try {
+      return await issueRiderProfileLink(riderId, { regenerate });
+    } catch (error) {
+      errorMessage.value = error.friendlyMessage || 'Error al generar el enlace de ficha.';
+      return null;
+    }
+  }
+
   // Elimina un piloto del sistema
   async function removeRider(riderId) {
     isLoading.value = true;
@@ -123,7 +155,7 @@ export function useRiders() {
 
   // Recarga reactivamente cuando los filtros cambian (con debounce simple o inmediato)
   watch(
-    () => [filters.search, filters.category_id],
+    () => [filters.search, filters.category_id, filters.incomplete_only],
     () => {
       fetchRiders();
     }
@@ -141,6 +173,8 @@ export function useRiders() {
     updateStatus,
     handleRetire,
     handleRevertRetire,
+    assignPlate,
+    getProfileLink,
     removeRider,
   };
 }

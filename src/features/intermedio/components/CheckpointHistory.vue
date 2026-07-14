@@ -5,7 +5,7 @@
       <div class="card panel-history">
         <div class="panel-header">
           <span class="material-icons header-icon">history</span>
-          <h3>Últimos 5 Pasos Registrados</h3>
+          <h3>Últimos pasos · mesa</h3>
         </div>
 
         <div class="passes-list" v-if="historyPasses.length > 0">
@@ -13,26 +13,33 @@
             v-for="pass in historyPasses"
             :key="pass.id"
             class="pass-item"
-            :class="{ 'pass-item--offline': pass.isOffline }"
+            :class="{
+              'pass-item--offline': pass.isOffline || pass.source === 'offline',
+              'pass-item--remote': pass.source === 'remote',
+            }"
           >
-            <!-- Badge compacto con solo el número de placa -->
             <div class="pass-plate-badge">
               #{{ pass.plate_number }}
             </div>
-            
-            <!-- Columna de información y metadatos -->
+
             <div class="pass-info-col">
               <span class="rider-name">{{ pass.full_name }}</span>
               <div class="pass-meta-row">
                 <span class="time-lbl text-mono">{{ formatTime(pass.exact_time) }}</span>
                 <span class="bullet-separator">•</span>
-                <span class="sync-status-lbl" :class="{ 'status-offline': pass.isOffline }">
-                  {{ pass.isOffline ? 'Offline' : 'Sincronizado' }}
+                <span
+                  class="sync-status-lbl"
+                  :class="{
+                    'status-offline': pass.isOffline || pass.source === 'offline',
+                    'status-remote': pass.source === 'remote',
+                  }"
+                >
+                  {{ sourceLabel(pass) }}
                 </span>
               </div>
             </div>
             
-            <div class="pass-actions">
+            <div class="pass-actions" v-if="canEditPass(pass)">
               <button
                 class="action-btn btn-edit"
                 title="Editar Placa"
@@ -52,7 +59,7 @@
         </div>
         <div v-else class="empty-history">
           <span class="material-icons empty-icon">history_toggle_off</span>
-          <p>Sin marcas en esta sesión.</p>
+          <p>Sin marcas en la mesa todavía.</p>
         </div>
       </div>
 
@@ -117,6 +124,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useCheckpoint } from '../hooks/useCheckpoint';
+import { formatTimeOnly } from '../../../core/time/raceTime';
 
 const {
   historyPasses,
@@ -135,9 +143,18 @@ const dnfRiders = computed(() => {
 });
 
 function formatTime(dateTimeStr) {
-  if (!dateTimeStr) return '';
-  const parts = dateTimeStr.split(' ');
-  return parts.length > 1 ? parts[1] : dateTimeStr;
+  return formatTimeOnly(dateTimeStr);
+}
+
+function sourceLabel(pass) {
+  if (pass.isOffline || pass.source === 'offline') return 'Offline · este celular';
+  if (pass.source === 'remote') return 'Mesa compartida';
+  return 'Este celular';
+}
+
+function canEditPass(pass) {
+  if (!pass?.id || pass.isOffline || pass.source === 'offline') return false;
+  return typeof pass.id === 'number' || /^\d+$/.test(String(pass.id));
 }
 
 function promptEdit(pass) {
@@ -240,6 +257,19 @@ function onRevert(riderId) {
 
 .pass-item--offline {
   border-left: 3px solid var(--color-secondary);
+}
+
+.pass-item--remote {
+  border-left: 3px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.sync-status-lbl.status-offline {
+  color: var(--color-secondary);
+}
+
+.sync-status-lbl.status-remote {
+  color: #3b82f6;
 }
 
 .pass-plate-badge {

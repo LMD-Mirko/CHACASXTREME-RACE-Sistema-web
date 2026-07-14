@@ -40,6 +40,7 @@
 
 <script setup>
 import { useMeta } from '../../hooks/useMeta';
+import { formatRaceClockMs } from '../../../../core/time/raceTime';
 
 defineEmits(['assign']);
 
@@ -47,42 +48,7 @@ const { finishTimeQueue, annulBlindTime } = useMeta();
 
 function formatTimeStr(dateStr) {
   if (!dateStr) return '';
-  try {
-    let cleanStr = String(dateStr).trim();
-    
-    // 1. Reemplazar espacio por 'T' para compatibilidad con Safari
-    cleanStr = cleanStr.replace(' ', 'T');
-    
-    // 2. Si no tiene 'Z' ni '+', agregar 'Z' para indicar UTC
-    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-      cleanStr = cleanStr + 'Z';
-    }
-    
-    // 3. Truncar los microsegundos a milisegundos (máximo 3 dígitos tras el punto)
-    let parts = cleanStr.split('.');
-    if (parts.length > 1) {
-      let suffix = parts[1].includes('Z') ? 'Z' : '';
-      let dec = parts[1].replace(/[^0-9]/g, '');
-      cleanStr = parts[0] + '.' + dec.substring(0, 3) + suffix;
-    }
-    
-    const date = new Date(cleanStr);
-    if (isNaN(date.getTime())) {
-      const tPart = cleanStr.split('T')[1];
-      if (tPart) {
-        return tPart.split('.')[0].replace('Z', '');
-      }
-      return dateStr;
-    }
-    
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    const ms = date.getMilliseconds().toString().padStart(3, '0');
-    return `${hours}:${minutes}:${seconds}.${ms}`;
-  } catch (e) {
-    return dateStr;
-  }
+  return formatRaceClockMs(dateStr);
 }
 
 function onDiscard(id) {

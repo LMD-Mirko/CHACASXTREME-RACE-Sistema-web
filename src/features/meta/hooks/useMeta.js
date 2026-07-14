@@ -1,14 +1,18 @@
-import { ref, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import {
   freezeTime, getQueue, assignPlate, annulTime, clearAllPendingTimes
 } from '../services/metaService';
 import { getActiveCompetition, getRidersByCategory } from '../../partida/services/partidaService';
+import { formatDeviceRaceTime, parseRaceTimeToEpoch } from '../../../core/time/raceTime';
+import { wsStatus } from '../../../core/network/wsStatus';
 
 const activeCompetition = ref(null);
 const finishTimeQueue = ref([]);
-const riders = ref([]); // Flat list of all riders
+const riders = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
+
+let queuePollTimer = null;
 
 export function useMeta() {
   async function loadInitialData() {
@@ -36,30 +40,34 @@ export function useMeta() {
     }
   }
 
-  function getFormattedCurrentTime() {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    const ms = String(d.getMilliseconds()).padStart(3, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+  function startQueuePollingFallback() {
+    stopQueuePollingFallback();
+    queuePollTimer = setInterval(() => {
+      if (wsStatus.value !== 'connected') {
+        refreshQueue();
+      }
+    }, 4000);
+  }
+
+  function stopQueuePollingFallback() {
+    if (queuePollTimer) {
+      clearInterval(queuePollTimer);
+      queuePollTimer = null;
+    }
   }
 
   async function triggerBlindTime() {
     if (!activeCompetition.value) return;
-    const timeStr = getFormattedCurrentTime();
+    const timeStr = formatDeviceRaceTime();
     try {
       const createdItem = await freezeTime({
         competition_id: activeCompetition.value.id,
         blind_timestamp: timeStr
       });
-      // Add locally if not present (websocket will also trigger this)
       addQueueItemLocally(createdItem);
+      errorMessage.value = '';
     } catch (err) {
-      errorMessage.value = 'Fallo al enviar la marca de tiempo.';
+      errorMessage.value = err.friendlyMessage || 'Fallo al enviar la marca de tiempo.';
     }
   }
 
@@ -67,8 +75,11 @@ export function useMeta() {
     const exists = finishTimeQueue.value.some(q => q.id === item.id);
     if (!exists) {
       finishTimeQueue.value.push(item);
-      // Sort ascending by blind_timestamp
-      finishTimeQueue.value.sort((a, b) => new Date(a.blind_timestamp) - new Date(b.blind_timestamp));
+      finishTimeQueue.value.sort((a, b) => {
+        const aMs = parseRaceTimeToEpoch(a.blind_timestamp) ?? 0;
+        const bMs = parseRaceTimeToEpoch(b.blind_timestamp) ?? 0;
+        return aMs - bMs;
+      });
     }
   }
 
@@ -76,13 +87,11 @@ export function useMeta() {
     isLoading.value = true;
     try {
       await assignPlate(queueId, plateNumber);
-      // Remove from local queue
       finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== queueId);
-      // Refresh riders list
       const ridersList = await getRidersByCategory('');
       riders.value = ridersList || [];
     } catch (err) {
-      alert(err.response?.data?.message || 'Error al asignar la placa.');
+      alert(err.response?.data?.message || err.friendlyMessage || 'Error al asignar la placa.');
     } finally {
       isLoading.value = false;
     }
@@ -109,16 +118,20 @@ export function useMeta() {
   }
 
   function handleRiderFinishedEvent(exactTime) {
-    // A rider finished, meaning its queue item has been assigned
-    // We should filter out any matching item by exact_time
-    // Since exactTime matches the stored blind_timestamp
     finishTimeQueue.value = finishTimeQueue.value.filter(q => {
-      // Compare dates by timestamp
-      const qTime = new Date(q.blind_timestamp).getTime();
-      const eventTime = new Date(exactTime).getTime();
-      return Math.abs(qTime - eventTime) > 50; // allow small tolerance
+      const qTime = parseRaceTimeToEpoch(q.blind_timestamp) ?? 0;
+      const eventTime = parseRaceTimeToEpoch(exactTime) ?? 0;
+      return Math.abs(qTime - eventTime) > 50;
     });
   }
+
+  onMounted(() => {
+    startQueuePollingFallback();
+  });
+
+  onBeforeUnmount(() => {
+    stopQueuePollingFallback();
+  });
 
   return {
     activeCompetition, finishTimeQueue, riders, isLoading, errorMessage,

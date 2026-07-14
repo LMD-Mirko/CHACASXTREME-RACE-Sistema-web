@@ -59,6 +59,10 @@ const currentTabComponent = computed(() => {
   overflow-y: auto;
 }
 
+.config-header {
+  flex-shrink: 0;
+}
+
 .config-header h1 {
   font-size: 24px;
   font-weight: 800;
@@ -81,8 +85,11 @@ const currentTabComponent = computed(() => {
   border-radius: 16px;
   width: max-content;
   max-width: 100%;
-  overflow-x: auto;
   align-self: flex-start;
+  flex-shrink: 0;
+  min-height: 52px;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 :global(.dark-theme) .tabs-nav {
@@ -90,20 +97,23 @@ const currentTabComponent = computed(() => {
 }
 
 .tab-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
+  min-height: 40px;
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
   font-family: var(--font-family);
   font-size: 13.5px;
   font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
   border-radius: 12px;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab-btn:hover {
@@ -142,6 +152,8 @@ const currentTabComponent = computed(() => {
   .tabs-nav {
     width: 100%;
     align-self: stretch;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   .tab-btn {
@@ -149,6 +161,7 @@ const currentTabComponent = computed(() => {
     justify-content: center;
     padding: 10px 12px;
     font-size: 12.5px;
+    min-width: max-content;
   }
 }
 

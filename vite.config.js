@@ -2,7 +2,15 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
+/**
+ * Backend SOLO en VPS.
+ * Por defecto el proxy habla a localhost (levanta `npm run tunnel`).
+ * Sin tunnel: VITE_VPS_DIRECT=1 npm run dev → IP pública del VPS.
+ */
+const useDirectVps = process.env.VITE_VPS_DIRECT === '1'
+const API_TARGET = useDirectVps ? 'http://24.199.82.193:8888' : 'http://127.0.0.1:8888'
+const WS_TARGET = useDirectVps ? 'http://24.199.82.193:8080' : 'http://127.0.0.1:8080'
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -19,7 +27,7 @@ export default defineConfig({
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -33,7 +41,7 @@ export default defineConfig({
               cacheName: 'gstatic-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -83,10 +91,32 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://24.199.82.193:8888',
+        target: API_TARGET,
         changeOrigin: true,
         secure: false,
-      }
-    }
-  }
+      },
+      '/storage': {
+        target: API_TARGET,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/broadcasting': {
+        target: API_TARGET,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/app': {
+        target: WS_TARGET,
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
+      '/apps': {
+        target: WS_TARGET,
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
+    },
+  },
 })

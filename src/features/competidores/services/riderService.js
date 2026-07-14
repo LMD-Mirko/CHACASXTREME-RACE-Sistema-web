@@ -81,6 +81,31 @@ export async function revertRetireRider(id) {
 }
 
 /**
+ * Asigna o reasigna el número de placa de un piloto.
+ * @param {number|string} id - ID del piloto.
+ * @param {number} plateNumber - Nuevo número de placa.
+ * @returns {Promise<Object>} Datos del piloto actualizado.
+ */
+export async function assignRiderPlate(id, plateNumber) {
+  const response = await api.post(`/api/riders/${id}/plate`, {
+    plate_number: plateNumber,
+  });
+  return response.data.data;
+}
+
+/**
+ * Genera (o reutiliza) el enlace para que el competidor complete su ficha.
+ * @param {number|string} id
+ * @param {{ regenerate?: boolean }} [options]
+ */
+export async function issueRiderProfileLink(id, options = {}) {
+  const response = await api.post(`/api/riders/${id}/profile-link`, {
+    regenerate: Boolean(options.regenerate),
+  });
+  return response.data.data;
+}
+
+/**
  * Elimina un piloto del sistema.
  * @param {number|string} id - ID del piloto.
  * @returns {Promise<Object>} Respuesta del servidor.

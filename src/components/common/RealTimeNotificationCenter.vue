@@ -211,7 +211,7 @@
 
     <!-- 6. MODAL PREMIUM GRILLA CONFIRMADA (RollCallFinished) -->
     <Transition name="modal-scale">
-      <div v-if="rollCallFinishedAlert && userRole !== 'PARTIDA'" class="modal-overlay-glow">
+      <div v-if="rollCallFinishedAlert" class="modal-overlay-glow">
         <div class="checkpoint-premium-modal roll-call-finished-modal">
           <div class="glow-header glow-header--success"></div>
           
@@ -250,7 +250,12 @@
 
     <!-- 7. OVERLAY GIGANTE DE CUENTA REGRESIVA DE LARGADA (CountdownStarted) -->
     <Transition name="fade">
-      <div v-if="liveCountdownVal !== null && userRole !== 'PARTIDA'" class="giant-countdown-overlay" :class="{ 'overlay--go': liveCountdownVal === '¡SALIDA!' }">
+      <div
+        v-if="liveCountdownVal !== null && userRole !== 'PARTIDA'"
+        class="giant-countdown-overlay"
+        :class="{ 'overlay--go': liveCountdownVal === '¡SALIDA!' }"
+        @click="dismissCountdown"
+      >
         <!-- Fondo de Cuadrícula con Banderas de Meta Cruzadas -->
         <div class="hud-bg-effects">
           <div class="check-flag-overlay" :class="{ 'check-flag-overlay--active': liveCountdownVal === '¡SALIDA!' }"></div>
@@ -304,6 +309,8 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { formatTimeOnly } from '../../core/time/raceTime';
+import { onRaceEvent, ensureRaceChannels } from '../../core/network/raceRealtime';
 
 const checkpointAlert = ref(null);
 const senderPassToast = ref(null);
@@ -322,7 +329,7 @@ const getLiveStrokeDashArray = computed(() => {
   return `${val} 283`;
 });
 
-let channels = [];
+let unsubscribes = [];
 let checkpointTimeout = null;
 let adminFinishedTimeout = null;
 let generalFinishedTimeout = null;
@@ -332,26 +339,12 @@ let countdownInterval = null;
 
 const userRole = ref(localStorage.getItem('user_role')?.toUpperCase() || '');
 
-function formatTimeOnly(dateTimeStr) {
-  if (!dateTimeStr) return '';
-  try {
-    let cleanStr = String(dateTimeStr);
-    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-      if (cleanStr.includes(' ')) {
-        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
-      } else {
-        cleanStr = cleanStr + 'Z';
-      }
-    }
-    const date = new Date(cleanStr);
-    if (isNaN(date.getTime())) return dateTimeStr;
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  } catch (e) {
-    return dateTimeStr;
+function dismissCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
   }
+  liveCountdownVal.value = null;
 }
 
 function playPassSound() {
@@ -464,162 +457,196 @@ function playGoSound() {
 }
 
 onMounted(() => {
-  // Listen for storage changes to sync role dynamically if it changes without reload
+  // Escuchar cambios de rol
   window.addEventListener('storage', () => {
     userRole.value = localStorage.getItem('user_role')?.toUpperCase() || '';
   });
 
-  if (window.Echo) {
-    // 1. Canal race-mountain
-    const mountainChannel = window.Echo.channel('race-mountain');
-    channels.push(mountainChannel);
+  // Limpiar overlays huérfanos (HMR / eventos a medias) que dejan la pantalla negra
+  checkpointAlert.value = null;
+  senderPassToast.value = null;
+  adminFinishedAlert.value = null;
+  generalFinishedAlert.value = null;
+  metaFreezedAlert.value = null;
+  raceResetAlert.value = null;
+  rollCallFinishedAlert.value = null;
+  liveCountdownVal.value = null;
 
-    // Escucha de paso por Checkpoint
-    mountainChannel.listen('.RiderPassedCheckpoint', (e) => {
-      // Disparar evento DOM para actualizar componentes que lo necesiten
-      window.dispatchEvent(new CustomEvent('rider-passed-checkpoint', { detail: e }));
+  ensureRaceChannels();
 
-      const myRole = userRole.value?.toUpperCase();
-      const myCheckpointName = localStorage.getItem('checkpoint_name') || 'Control Intermedio';
-      const isMyCheckpoint = e.checkpoint_name?.toUpperCase() === myCheckpointName.toUpperCase();
+  const track = (off) => {
+    if (typeof off === 'function') unsubscribes.push(off);
+  };
 
-      if (myRole === 'INTERMEDIO' && isMyCheckpoint) {
-        // I am the sender of this pass! Show a small toast instead of giant modal
-        senderPassToast.value = e;
-        playSenderPassSound();
-        if (checkpointTimeout) clearTimeout(checkpointTimeout);
-        checkpointTimeout = setTimeout(() => {
-          senderPassToast.value = null;
-        }, 4000);
-      } else {
-        // Show giant central modal for other devices
-        checkpointAlert.value = e;
-        playPassSound();
-        if (checkpointTimeout) clearTimeout(checkpointTimeout);
-        checkpointTimeout = setTimeout(() => {
-          checkpointAlert.value = null;
-        }, 5000); // Closes after 5s
-      }
-    });
+  // 1. Canal race-mountain
+  track(onRaceEvent('mountain', '.RiderPassedCheckpoint', (e) => {
+    window.dispatchEvent(new CustomEvent('rider-passed-checkpoint', { detail: e }));
 
-    // Escucha de incidentes y retiros
-    mountainChannel.listen('.RiderIncidentReported', (e) => {
-      window.dispatchEvent(new CustomEvent('rider-incident-reported', { detail: e }));
-    });
+    const myRole = userRole.value?.toUpperCase();
+    const myCheckpointName = localStorage.getItem('checkpoint_name') || 'Control Intermedio';
+    const isMyCheckpoint = e.checkpoint_name?.toUpperCase() === myCheckpointName.toUpperCase();
 
-    // Escucha de largadas
-    mountainChannel.listen('.CategoryMangaStarted', (e) => {
-      window.dispatchEvent(new CustomEvent('category-manga-started', { detail: e }));
-    });
+    if (myRole === 'INTERMEDIO' && isMyCheckpoint) {
+      senderPassToast.value = e;
+      playSenderPassSound();
+      if (checkpointTimeout) clearTimeout(checkpointTimeout);
+      checkpointTimeout = setTimeout(() => {
+        senderPassToast.value = null;
+      }, 4000);
+    } else {
+      checkpointAlert.value = e;
+      playPassSound();
+      if (checkpointTimeout) clearTimeout(checkpointTimeout);
+      checkpointTimeout = setTimeout(() => {
+        checkpointAlert.value = null;
+      }, 5000);
+    }
+  }));
 
-    // Escucha de fin de pase de lista
-    mountainChannel.listen('.RollCallFinished', (e) => {
-      window.dispatchEvent(new CustomEvent('roll-call-finished', { detail: e }));
+  track(onRaceEvent('mountain', '.RiderIncidentReported', (e) => {
+    window.dispatchEvent(new CustomEvent('rider-incident-reported', { detail: e }));
+  }));
+
+  track(onRaceEvent('mountain', '.CategoryMangaStarted', (e) => {
+    window.dispatchEvent(new CustomEvent('category-manga-started', { detail: e }));
+  }));
+
+  track(onRaceEvent('mountain', '.CategoryMangaCompleted', (e) => {
+    window.dispatchEvent(new CustomEvent('category-manga-completed', { detail: e }));
+  }));
+
+  track(onRaceEvent('mountain', '.RollCallStarted', (e) => {
+    window.dispatchEvent(new CustomEvent('roll-call-started', { detail: e }));
+  }));
+
+  track(onRaceEvent('mountain', '.RiderPresenceUpdated', (e) => {
+    window.dispatchEvent(new CustomEvent('rider-presence-updated', { detail: e }));
+  }));
+
+  track(onRaceEvent('mountain', '.RollCallFinished', (e) => {
+    window.dispatchEvent(new CustomEvent('roll-call-finished', { detail: e }));
+    if (e && (e.category_name || e.total_present != null)) {
       rollCallFinishedAlert.value = e;
-    });
+    }
+  }));
 
-    // Escucha de cuenta regresiva
-    mountainChannel.listen('.CountdownStarted', (e) => {
-      window.dispatchEvent(new CustomEvent('countdown-started', { detail: e }));
-      
-      countdownCategory.value = e.category_name;
-      liveCountdownVal.value = e.duration_seconds;
-      playTickSound();
+  track(onRaceEvent('mountain', '.CountdownStarted', (e) => {
+    window.dispatchEvent(new CustomEvent('countdown-started', { detail: e }));
 
-      if (countdownInterval) clearInterval(countdownInterval);
-      countdownInterval = setInterval(() => {
-        if (typeof liveCountdownVal.value === 'number') {
-          liveCountdownVal.value--;
-          if (liveCountdownVal.value === 0) {
-            liveCountdownVal.value = '¡SALIDA!';
-            playGoSound();
-          } else {
-            playTickSound();
-          }
-        } else {
-          // It was '¡SALIDA!', clear the overlay
-          clearInterval(countdownInterval);
-          countdownInterval = null;
+    const seconds = Number(e?.duration_seconds);
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+
+    countdownCategory.value = e.category_name || '';
+    liveCountdownVal.value = seconds;
+    playTickSound();
+
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      if (typeof liveCountdownVal.value === 'number') {
+        liveCountdownVal.value--;
+        if (liveCountdownVal.value === 0) {
+          liveCountdownVal.value = '¡SALIDA!';
+          playGoSound();
+        } else if (liveCountdownVal.value > 0) {
+          playTickSound();
+        }
+      } else {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        // Quitar overlay tras "¡SALIDA!"
+        setTimeout(() => {
           liveCountdownVal.value = null;
-        }
-      }, 1000);
-    });
-
-    // 2. Canal race-timing
-    const timingChannel = window.Echo.channel('race-timing');
-    channels.push(timingChannel);
-
-    // Escucha de corredor finalizado en meta (Asignación)
-    timingChannel.listen('.RiderFinished', (e) => {
-      window.dispatchEvent(new CustomEvent('rider-finished', { detail: e }));
-
-      // Comportamiento según el rol
-      const role = localStorage.getItem('user_role')?.toUpperCase() || '';
-      
-      if (role === 'META' || role === 'ADMIN') {
-        if (navigator.vibrate) {
-          navigator.vibrate([200]); // Vibrate phone on rider finished/assigned
-        }
+        }, 1200);
       }
+    }, 1000);
+  }));
 
-      // Mostrar siempre el toast general verde en todos los roles (incluido ADMIN)
-      generalFinishedAlert.value = e;
-      playFinishSound();
-      if (generalFinishedTimeout) clearTimeout(generalFinishedTimeout);
-      generalFinishedTimeout = setTimeout(() => {
-        generalFinishedAlert.value = null;
-      }, 8000); // Increased from 5s to 8s (+3s)
+  // 2. Canal race-timing
+  track(onRaceEvent('timing', '.RiderFinished', (e) => {
+    window.dispatchEvent(new CustomEvent('rider-finished', { detail: e }));
 
-      // Si es ADMIN, también mostrar el panel lateral de detalles
-      if (role === 'ADMIN') {
-        adminFinishedAlert.value = e;
-        if (adminFinishedTimeout) clearTimeout(adminFinishedTimeout);
-        adminFinishedTimeout = setTimeout(() => {
-          adminFinishedAlert.value = null;
-        }, 11000); // Increased from 8s to 11s (+3s)
+    const role = localStorage.getItem('user_role')?.toUpperCase() || '';
+
+    if (role === 'META' || role === 'ADMIN') {
+      if (navigator.vibrate) {
+        navigator.vibrate([200]);
       }
-    });
+    }
 
-    // Escucha de marca congelada en meta (Pulsador)
-    timingChannel.listen('.TimeFreezedInMeta', (e) => {
-      window.dispatchEvent(new CustomEvent('time-freezed-in-meta', { detail: e }));
+    generalFinishedAlert.value = e;
+    playFinishSound();
+    if (generalFinishedTimeout) clearTimeout(generalFinishedTimeout);
+    generalFinishedTimeout = setTimeout(() => {
+      generalFinishedAlert.value = null;
+    }, 8000);
 
-      // Solo avisar al staff de meta (quien está asignando) o admin
-      const role = localStorage.getItem('user_role')?.toUpperCase() || '';
-      if (role === 'META' || role === 'ADMIN') {
-        metaFreezedAlert.value = e;
-        playSenderPassSound(); // Play clear high-pitched beep
-        if (navigator.vibrate) {
-          navigator.vibrate([150, 100, 150]); // Double vibration
-        }
-        if (metaFreezedTimeout) clearTimeout(metaFreezedTimeout);
-        metaFreezedTimeout = setTimeout(() => {
-          metaFreezedAlert.value = null;
-        }, 7000); // Increased from 4s to 7s (+3s)
+    if (role === 'ADMIN') {
+      adminFinishedAlert.value = e;
+      if (adminFinishedTimeout) clearTimeout(adminFinishedTimeout);
+      adminFinishedTimeout = setTimeout(() => {
+        adminFinishedAlert.value = null;
+      }, 11000);
+    }
+  }));
+
+  track(onRaceEvent('timing', '.CategoryMangaCompleted', (e) => {
+    window.dispatchEvent(new CustomEvent('category-manga-completed', { detail: e }));
+  }));
+
+  track(onRaceEvent('timing', '.TimeFreezedInMeta', (e) => {
+    window.dispatchEvent(new CustomEvent('time-freezed-in-meta', { detail: e }));
+
+    const role = localStorage.getItem('user_role')?.toUpperCase() || '';
+    if (role === 'META' || role === 'ADMIN') {
+      metaFreezedAlert.value = e;
+      playSenderPassSound();
+      if (navigator.vibrate) {
+        navigator.vibrate([150, 100, 150]);
       }
-    });
+      if (metaFreezedTimeout) clearTimeout(metaFreezedTimeout);
+      metaFreezedTimeout = setTimeout(() => {
+        metaFreezedAlert.value = null;
+      }, 7000);
+    }
+  }));
 
-    // Escucha de correcciones manuales
-    timingChannel.listen('.CorrectionsApplied', (e) => {
-      window.dispatchEvent(new CustomEvent('corrections-applied', { detail: e }));
-    });
+  track(onRaceEvent('timing', '.CorrectionsApplied', (e) => {
+    window.dispatchEvent(new CustomEvent('corrections-applied', { detail: e }));
+  }));
 
-    // 3. Canal race-infrastructure (reinicio de competencia)
-    const infraChannel = window.Echo.channel('race-infrastructure');
-    channels.push(infraChannel);
+  track(onRaceEvent('timing', '.RiderEstimatedArrival', (e) => {
+    window.dispatchEvent(new CustomEvent('rider-estimated-arrival', { detail: e }));
+  }));
 
-    infraChannel.listen('.RaceReset', (e) => {
-      window.dispatchEvent(new CustomEvent('race-reset', { detail: e }));
+  track(onRaceEvent('timing', '.TimeAnnulledInMeta', (e) => {
+    window.dispatchEvent(new CustomEvent('time-annulled-in-meta', { detail: e }));
+  }));
 
-      raceResetAlert.value = e;
-      playResetSound();
+  track(onRaceEvent('timing', '.QueueClearedInMeta', (e) => {
+    window.dispatchEvent(new CustomEvent('queue-cleared-in-meta', { detail: e }));
+  }));
 
-      if (raceResetTimeout) clearTimeout(raceResetTimeout);
-      raceResetTimeout = setTimeout(() => {
-        raceResetAlert.value = null;
-      }, 6000);
-    });
-  }
+  // 3. Canal race-infrastructure
+  track(onRaceEvent('infrastructure', '.RaceReset', (e) => {
+    window.dispatchEvent(new CustomEvent('race-reset', { detail: e }));
+
+    raceResetAlert.value = e;
+    playResetSound();
+
+    if (raceResetTimeout) clearTimeout(raceResetTimeout);
+    raceResetTimeout = setTimeout(() => {
+      raceResetAlert.value = null;
+    }, 6000);
+  }));
+
+  track(onRaceEvent('infrastructure', '.CompetitionPhaseChanged', (e) => {
+    window.dispatchEvent(new CustomEvent('competition-phase-changed', { detail: e }));
+  }));
+
+  // Si el socket se recupera, re-asegurar binds
+  const onWsConnected = () => ensureRaceChannels();
+  window.addEventListener('ws-connected', onWsConnected);
+  unsubscribes.push(() => window.removeEventListener('ws-connected', onWsConnected));
 });
 
 onBeforeUnmount(() => {
@@ -630,11 +657,11 @@ onBeforeUnmount(() => {
   if (raceResetTimeout) clearTimeout(raceResetTimeout);
   if (countdownInterval) clearInterval(countdownInterval);
 
-  if (window.Echo) {
-    window.Echo.leaveChannel('race-timing');
-    window.Echo.leaveChannel('race-mountain');
-    window.Echo.leaveChannel('race-infrastructure');
-  }
+  // Solo quita NUESTROS handlers — NUNCA leaveChannel (rompe otras vistas)
+  unsubscribes.forEach((off) => {
+    try { off(); } catch (_) { /* ignore */ }
+  });
+  unsubscribes = [];
 });
 </script>
 

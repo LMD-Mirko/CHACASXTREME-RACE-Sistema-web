@@ -14,7 +14,7 @@
       <div v-if="confirmingReset" class="panic-confirmation-banner">
         <div class="confirmation-text">
           <span class="material-icons warning-icon">warning</span>
-          <span>¿Confirmas reiniciar la manga? Los competidores volverán a pre-inscritos.</span>
+          <span>¿Confirmas reiniciar? Borra largada, META/checkpoints de la fase y cola pendiente. Solo úsalo en salida en falso.</span>
         </div>
         <div class="confirmation-actions">
           <button class="confirm-btn" @click="handlePanicReset" :disabled="loading">

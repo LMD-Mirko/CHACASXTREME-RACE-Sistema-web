@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tunnel": "bash scripts/vps-tunnel.sh",
+    "dev:vps": "VITE_VPS_DIRECT=1 vite",
     "build": "vite build",
     "preview": "vite preview"
   },

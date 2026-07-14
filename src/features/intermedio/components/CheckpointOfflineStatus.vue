@@ -12,10 +12,10 @@
           {{ isOnline ? 'Conectado al Servidor' : 'Sin Señal Celular' }}
         </span>
         <span class="status-desc" v-if="offlinePasses.length > 0">
-          {{ offlinePasses.length }} marcas almacenadas localmente.
+          {{ offlinePasses.length }} marcas en este celular (pendientes de sync).
         </span>
         <span class="status-desc" v-else>
-          {{ isOnline ? 'Canal sincronizado y activo.' : 'Almacenando localmente en IndexedDB.' }}
+          {{ isOnline ? 'Mesa sincronizada · WebSocket activo.' : 'Sin red · guardando solo en este celular.' }}
         </span>
       </div>
     </div>

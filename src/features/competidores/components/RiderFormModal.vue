@@ -50,16 +50,33 @@ const defaultForm = () => ({
   instagram: '',
   emergency_phone: '',
   photo_url: '',
+  has_guardian: false,
+  guardian_full_name: '',
+  guardian_dni: '',
+  guardian_phone: '',
 });
 
 const form = ref(defaultForm());
+
+function categoryRequiresGuardian(rider) {
+  const name = rider?.category?.name || '';
+  return /cadetes|junior/i.test(name);
+}
 
 watch(
   () => props.rider,
   (newVal) => {
     if (newVal) {
       riderId.value = newVal.id;
-      form.value = { ...defaultForm(), ...newVal };
+      const hasGuardianData = Boolean(
+        newVal.guardian_full_name || newVal.guardian_dni || newVal.guardian_phone
+      );
+      form.value = {
+        ...defaultForm(),
+        ...newVal,
+        // Cadetes/Junior siempre muestran apoderado; OPEN solo si ya hay datos
+        has_guardian: categoryRequiresGuardian(newVal) || hasGuardianData,
+      };
     } else {
       riderId.value = null;
       form.value = defaultForm();
@@ -75,11 +92,22 @@ function handleFileSelected(file) {
 
 function handleSubmit() {
   const formData = new FormData();
-  
-  Object.keys(form.value).forEach((key) => {
-    if (form.value[key] !== null && form.value[key] !== undefined) {
-      formData.append(key, form.value[key]);
-    }
+  const payload = { ...form.value };
+
+  // No enviar flag UI al API
+  delete payload.has_guardian;
+
+  if (!form.value.has_guardian) {
+    payload.guardian_full_name = '';
+    payload.guardian_dni = '';
+    payload.guardian_phone = '';
+  }
+
+  Object.keys(payload).forEach((key) => {
+    const value = payload[key];
+    if (value === null || value === undefined) return;
+    if (key === 'plate_number' && value === '') return;
+    formData.append(key, value);
   });
 
   if (photoFile.value) {

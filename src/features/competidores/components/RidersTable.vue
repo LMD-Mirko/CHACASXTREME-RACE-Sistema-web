@@ -19,7 +19,18 @@
 
       <!-- Slot de Celda: Placa -->
       <template #cell-plate="{ item }">
-        <span class="plate-number">{{ item.plate_number }}</span>
+        <div class="plate-cell">
+          <span v-if="hasPlate(item)" class="plate-number">{{ item.plate_number }}</span>
+          <span v-else class="plate-empty">Sin placa</span>
+          <button
+            type="button"
+            class="btn-plate-assign"
+            :class="{ 'is-reassign': hasPlate(item) }"
+            @click="$emit('assign-plate', item)"
+          >
+            {{ hasPlate(item) ? 'Reasignar' : 'Asignar placa' }}
+          </button>
+        </div>
       </template>
 
       <!-- Slot de Celda: Nombre -->
@@ -27,6 +38,7 @@
         <div class="name-cell">
           <span class="full-name">{{ item.full_name }}</span>
           <span class="nickname" v-if="item.nickname">"{{ item.nickname }}"</span>
+          <span v-if="item.profile_incomplete" class="incomplete-pill">Ficha incompleta</span>
         </div>
       </template>
 
@@ -88,6 +100,16 @@
             />
           </AppTooltip>
 
+          <AppTooltip content="Enviar link para completar ficha">
+            <AppButton
+              variant="icon-action"
+              icon="link"
+              class="btn-profile-link"
+              @click="$emit('share-profile', item)"
+              aria-label="Enlace para completar ficha"
+            />
+          </AppTooltip>
+
           <AppTooltip content="Eliminar piloto" align="right">
             <AppButton
               variant="icon-action"
@@ -107,6 +129,8 @@
           @edit="$emit('edit', item)"
           @change-status="$emit('change-status', item)"
           @view-detail="$emit('view-detail', item)"
+          @assign-plate="$emit('assign-plate', item)"
+          @share-profile="$emit('share-profile', item)"
           @delete="$emit('delete', item)"
         />
       </template>
@@ -121,13 +145,14 @@
 
 <script setup>
 import { getStatusStyle } from '../../../core/constants/riderStatusStyles';
+import { storageUrl } from '../../../core/network/storageUrl';
 import RiderCard from './RiderCard.vue';
 
 defineProps({
   riders: { type: Array, required: true }
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile']);
 
 const headers = [
   { key: 'photo', label: 'Foto' },
@@ -140,9 +165,15 @@ const headers = [
   { key: 'actions', label: 'Acciones', alignClass: 'text-right' }
 ];
 
+function hasPlate(rider) {
+  const p = rider?.plate_number;
+  return p != null && p !== '' && Number(p) > 0;
+}
+
 function resolvePhotoUrl(path) {
-  if (path.startsWith('http')) return path;
-  return `http://127.0.0.1:8000/storage/${path}`;
+  if (!path) return '';
+  if (String(path).startsWith('http')) return path;
+  return storageUrl(path);
 }
 
 function handleImageError(e) {
@@ -200,6 +231,51 @@ function getInitials(name) {
   color: var(--color-primary);
 }
 
+.plate-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.plate-empty {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.btn-plate-assign {
+  appearance: none;
+  border: 1px solid rgba(255, 94, 0, 0.35);
+  background: rgba(255, 94, 0, 0.08);
+  color: var(--color-primary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-plate-assign:hover {
+  background: rgba(255, 94, 0, 0.16);
+  border-color: rgba(255, 94, 0, 0.55);
+}
+
+.btn-plate-assign.is-reassign {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+}
+
+.btn-plate-assign.is-reassign:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
 .name-cell {
   display: flex;
   flex-direction: column;
@@ -213,6 +289,21 @@ function getInitials(name) {
   font-size: 11.5px;
   color: var(--color-text-secondary);
   margin-top: 1px;
+}
+
+.incomplete-pill {
+  display: inline-flex;
+  margin-top: 4px;
+  width: fit-content;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .category-name {

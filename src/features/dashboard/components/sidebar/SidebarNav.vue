@@ -45,7 +45,7 @@ const filteredNavItems = computed(() => {
   } else if (role.value === 'INTERMEDIO') {
     return [allItems.checkpoint, allItems.categorias, allItems.competidores, allItems.posicion];
   } else if (role.value === 'META') {
-    return [allItems.confirmacion, allItems.categorias, allItems.posicion];
+    return [allItems.meta, allItems.confirmacion, allItems.categorias, allItems.posicion];
   }
   
   // ADMIN u otros roles ven todo

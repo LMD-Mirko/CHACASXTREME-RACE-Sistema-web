@@ -60,7 +60,12 @@ export async function finalizeCategory(competitionId, categoryId) {
   return response.data.data;
 }
 
-export async function resetCompetitionResults(competitionId) {
-  const response = await api.post(`/api/competitions/${competitionId}/reset-results`);
+export async function resetCompetitionResults(competitionId, scope = 'all') {
+  const response = await api.post(`/api/competitions/${competitionId}/reset-results`, { scope });
+  return response.data;
+}
+
+export async function prepareFinal(competitionId) {
+  const response = await api.post(`/api/competitions/${competitionId}/prepare-final`);
   return response.data;
 }

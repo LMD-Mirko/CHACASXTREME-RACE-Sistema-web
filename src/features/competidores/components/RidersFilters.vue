@@ -22,6 +22,15 @@
           icon="flag"
         />
       </div>
+
+      <label class="incomplete-toggle">
+        <input
+          type="checkbox"
+          :checked="Boolean(modelValue.incomplete_only)"
+          @change="updateField('incomplete_only', $event.target.checked)"
+        />
+        <span>Solo fichas incompletas</span>
+      </label>
     </div>
 
     <!-- Botón de creación -->
@@ -105,8 +114,35 @@ function updateField(key, value) {
     flex: 1;
   }
 
+  .incomplete-toggle {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   .btn-create {
     padding: 0 24px;
   }
+}
+
+.incomplete-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  background: var(--color-background, transparent);
+}
+
+.incomplete-toggle input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-primary, #ff5e00);
+  cursor: pointer;
 }
 </style>

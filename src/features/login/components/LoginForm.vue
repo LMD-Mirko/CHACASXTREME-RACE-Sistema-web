@@ -41,11 +41,11 @@
         </div>
       </div>
 
-      <!-- Casilla de Recordar Contraseña -->
+      <!-- Solo recordar usuario (nunca la contraseña en localStorage) -->
       <div class="options-row">
         <label class="remember-checkbox-label">
           <input type="checkbox" v-model="rememberMe" class="manka-checkbox" />
-          <span>Recordar contraseña en local</span>
+          <span>Recordar usuario</span>
         </label>
       </div>
 
@@ -77,11 +77,11 @@ const password = ref('');
 const rememberMe = ref(false);
 
 onMounted(() => {
+  // Limpiar contraseñas viejas guardadas (riesgo de seguridad)
+  localStorage.removeItem('saved_password');
   const savedUser = localStorage.getItem('saved_username');
-  const savedPass = localStorage.getItem('saved_password');
-  if (savedUser && savedPass) {
+  if (savedUser) {
     username.value = savedUser;
-    password.value = savedPass;
     rememberMe.value = true;
   }
 });
@@ -91,12 +91,11 @@ const submitLogin = async () => {
 
   const ok = await login(username.value.trim(), password.value.trim());
   if (ok) {
+    localStorage.removeItem('saved_password');
     if (rememberMe.value) {
       localStorage.setItem('saved_username', username.value.trim());
-      localStorage.setItem('saved_password', password.value.trim());
     } else {
       localStorage.removeItem('saved_username');
-      localStorage.removeItem('saved_password');
     }
     const role = localStorage.getItem('user_role')?.toUpperCase();
     if (role === 'PARTIDA') {

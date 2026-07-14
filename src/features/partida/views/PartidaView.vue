@@ -38,7 +38,7 @@
                     :class="{ 'phase-segment-btn--active-practice': selectedPhase === 'practica' }"
                     @click="selectedPhase = 'practica'"
                   >
-                    Prueba
+                    Clasificación
                   </button>
                   <button
                     class="phase-segment-btn"
@@ -48,6 +48,9 @@
                     Final
                   </button>
                 </div>
+                <p v-if="selectedPhase === 'final'" class="phase-hint-final">
+                  Solo clasificados. Todos salen marcados: marca únicamente a quienes no están.
+                </p>
               </div>
 
               <!-- Selector de Modo de Salida -->
@@ -106,8 +109,13 @@
             </AppButton>
             
             <div class="roll-call-title-box">
-              <span class="material-icons roll-call-icon">assignment_turned_in</span>
-              <h1>Pasar Lista: {{ selectedCategoryId === 'all' ? 'MEGA AVALANCHA (TODAS)' : activeCategoryLabel }}</h1>
+              <span class="material-icons roll-call-icon">{{ selectedPhase === 'final' ? 'person_off' : 'assignment_turned_in' }}</span>
+              <div>
+                <h1>{{ selectedPhase === 'final' ? 'Ausentes Final' : 'Pasar Lista' }}: {{ selectedCategoryId === 'all' ? 'MEGA AVALANCHA (TODAS)' : activeCategoryLabel }}</h1>
+                <p v-if="selectedPhase === 'final'" class="roll-call-subtitle">
+                  Todos presentes. Toca un piloto o DNS solo si ya no está.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -131,6 +139,7 @@
             :countdown="countdown"
             :loading="isLoading"
             :is-syncing="isSyncingRiders"
+            :is-final-phase="selectedPhase === 'final'"
             @launch="startLaunchCountdown"
           />
         </div>
@@ -139,7 +148,7 @@
         <div v-else-if="currentStep === 3" class="active-race-step-container fade-in">
           
           <!-- Si la competencia está terminada, mostrar vista de éxito explicativa -->
-          <div v-if="isMangaCompleted" class="race-completed-wizard-card">
+          <div v-if="showMangaCompleted" class="race-completed-wizard-card">
             <div class="glow-header-success-manga"></div>
             
             <div class="completed-manga-body">
@@ -147,13 +156,15 @@
                 <span class="material-icons">emoji_events</span>
               </div>
               
-              <h2>Competencia Terminada</h2>
-              <p class="completed-manga-desc">Todos los pilotos confirmados han cruzado la línea de meta y sus tiempos están registrados.</p>
+              <h2>Manga Terminada</h2>
+              <p class="completed-manga-desc">
+                Todos los pilotos llegaron o fueron marcados DNF. La manga se cerró automáticamente.
+              </p>
               
               <div class="manga-stats-summary-sport">
                 <div class="manga-stat-item-sport">
-                  <span class="stat-lbl-sport">Tiempo Final Transcurrido</span>
-                  <strong class="stat-val-sport">{{ timeFormatted }}</strong>
+                  <span class="stat-lbl-sport">Duración de la manga</span>
+                  <strong class="stat-val-sport">{{ displayMangaDuration }}</strong>
                 </div>
                 <div class="manga-stat-item-sport">
                   <span class="stat-lbl-sport">Pilotos en Meta</span>
@@ -164,7 +175,7 @@
               <div class="completed-manga-actions">
                 <button class="btn-manga-finish" @click="confirmMangaClosure">
                   <span class="material-icons">check_circle</span>
-                  <span>Cerrar Manga y Volver</span>
+                  <span>Volver al inicio</span>
                 </button>
               </div>
             </div>
@@ -218,7 +229,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { usePartida } from '../hooks/usePartida';
 import PartidaGrid from '../components/PartidaGrid.vue';
 import PartidaTrigger from '../components/PartidaTrigger.vue';
@@ -254,8 +265,17 @@ const {
   revertRiderDNS,
   startLaunchCountdown,
   panicReset,
-  startRollCall
+  startRollCall,
+  joinRemoteRollCall,
+  onRemotePresenceUpdated,
+  stopStopwatch,
 } = usePartida();
+
+/** Duración congelada al cerrar (no debe seguir corriendo) */
+const frozenDuration = ref('');
+const forceMangaCompleted = ref(false);
+
+const displayMangaDuration = computed(() => frozenDuration.value || '—');
 
 const totalRidersToStart = computed(() => {
   return activeRiders.value.length;
@@ -278,18 +298,69 @@ const handleLiveUpdate = () => {
 };
 
 const handleReset = () => {
+  forceMangaCompleted.value = false;
+  frozenDuration.value = '';
   loadInitialData();
   loadRiders();
 };
 
 const arrivedRidersCount = computed(() => {
-  return activeRiders.value.filter(r => r.race_status === 'llego').length;
+  return riders.value.filter(r => r.race_status === 'llego').length;
 });
 
-function confirmMangaClosure() {
-  if (confirm('¿Deseas dar por cerrada oficialmente esta manga y regresar al inicio?')) {
-    panicReset(); // calls endpoint that resets category launch status and reverts UI to Step 1
+const showMangaCompleted = computed(() => {
+  return forceMangaCompleted.value || isMangaCompleted.value;
+});
+
+function freezeMangaDuration(optionalFormatted) {
+  if (typeof stopStopwatch === 'function') stopStopwatch();
+  // Congelar valor actual del cronómetro (o el del backend si viene)
+  if (optionalFormatted) {
+    frozenDuration.value = optionalFormatted;
+  } else if (!frozenDuration.value) {
+    frozenDuration.value = timeFormatted.value;
   }
+}
+
+function confirmMangaClosure() {
+  // Solo vuelve al inicio: NO borra tiempos de largada
+  currentStep.value = 1;
+  raceState.value = 'idle';
+  forceMangaCompleted.value = false;
+  frozenDuration.value = '';
+  if (typeof stopStopwatch === 'function') stopStopwatch();
+}
+
+function onMangaCompleted(e) {
+  const detail = e?.detail || {};
+  const phaseOk = !detail.phase || detail.phase === selectedPhase.value;
+  const catOk =
+    selectedCategoryId.value === 'all' ||
+    detail.category_id === 'all' ||
+    Number(detail.category_id) === Number(selectedCategoryId.value);
+
+  if (!phaseOk || !catOk) return;
+
+  forceMangaCompleted.value = true;
+  freezeMangaDuration(detail.duration_formatted || null);
+  loadRiders();
+}
+
+// Si se completa por estado local (todos llego/DNF) también congelar
+watch(
+  showMangaCompleted,
+  (done) => {
+    if (done) freezeMangaDuration(null);
+  },
+  { immediate: true },
+);
+
+function onRollCallStarted(e) {
+  joinRemoteRollCall(e?.detail || {});
+}
+
+function onRiderPresenceUpdated(e) {
+  onRemotePresenceUpdated(e?.detail || {});
 }
 
 onMounted(async () => {
@@ -300,7 +371,10 @@ onMounted(async () => {
   window.addEventListener('rider-finished', handleLiveUpdate);
   window.addEventListener('rider-incident-reported', handleLiveUpdate);
   window.addEventListener('category-manga-started', handleReset);
+  window.addEventListener('category-manga-completed', onMangaCompleted);
   window.addEventListener('race-reset', handleReset);
+  window.addEventListener('roll-call-started', onRollCallStarted);
+  window.addEventListener('rider-presence-updated', onRiderPresenceUpdated);
 });
 
 onBeforeUnmount(() => {
@@ -308,7 +382,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('rider-finished', handleLiveUpdate);
   window.removeEventListener('rider-incident-reported', handleLiveUpdate);
   window.removeEventListener('category-manga-started', handleReset);
+  window.removeEventListener('category-manga-completed', onMangaCompleted);
   window.removeEventListener('race-reset', handleReset);
+  window.removeEventListener('roll-call-started', onRollCallStarted);
+  window.removeEventListener('rider-presence-updated', onRiderPresenceUpdated);
 });
 </script>
 
@@ -729,6 +806,19 @@ onBeforeUnmount(() => {
   font-weight: 900;
   color: var(--color-text-primary);
   margin: 0;
+}
+
+.roll-call-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.phase-hint-final {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-primary);
 }
 
 /* Modal de Animación Check Estilo Race Pass */

@@ -23,53 +23,33 @@
       </div>
     </Transition>
 
-    <!-- BLOQUEADOR PARA ADMIN EN DISPOSITIVOS MÓVILES -->
-    <div v-if="isAdmin && isMobile" class="admin-mobile-blocker fade-in">
-      <div class="blocker-card">
-        <div class="blocker-icon-container">
-          <span class="material-icons blocker-icon">desktop_access_disabled</span>
-        </div>
-        <h1>Acceso Restringido</h1>
-        <p class="blocker-desc">
-          El panel de Administración de <strong>Chacas Xtreme Race</strong> solo está disponible en pantallas de escritorio (Laptops o PCs). Por favor, ingresa desde una computadora para gestionar la carrera de manera segura y cómoda.
-        </p>
-        
-        <div class="blocker-user-info">
-          <span class="material-icons user-icon">account_circle</span>
-          <span class="user-name">{{ currentUser?.name || 'Administrador' }}</span>
-        </div>
-
-        <button class="btn-logout-blocker" @click="handleLogout">
-          <span class="material-icons">logout</span>
-          <span>Cerrar Sesión</span>
-        </button>
-      </div>
+    <!-- Aviso ADMIN en móvil (ya no bloquea — emergencia en carrera) -->
+    <div v-if="isAdmin && isMobile && showAdminMobileHint" class="admin-mobile-hint fade-in">
+      <span class="material-icons">warning_amber</span>
+      <p>Modo Admin en móvil: úsalo solo de emergencia. Lo ideal es laptop.</p>
+      <button type="button" class="hint-dismiss" @click="showAdminMobileHint = false">OK</button>
     </div>
 
-    <template v-else>
-      <!-- Sidebar lateral (se muestra solo en desktop si es staff, u ocultable en móvil si no estamos usando el menú flotante, pero ahora el staff usa el menú flotante) -->
-      <AppSidebar
-        v-if="!isMobile"
-        :is-open="isSidebarOpen"
-        @close="isSidebarOpen = false"
+    <!-- Sidebar lateral (desktop) -->
+    <AppSidebar
+      v-if="!isMobile"
+      :is-open="isSidebarOpen"
+      @close="isSidebarOpen = false"
+    />
+
+    <!-- Columna principal: header + contenido -->
+    <div class="dashboard-main" :class="{ 'dashboard-main--mobile': isMobile }">
+      <AppHeader
+        :show-hamburger="!isMobile"
+        @toggle-sidebar="isSidebarOpen = !isSidebarOpen"
       />
 
-      <!-- Columna principal: header pegado al tope + área de contenido -->
-      <div class="dashboard-main" :class="{ 'dashboard-main--mobile': isMobile }">
-        <AppHeader 
-          :show-hamburger="!isMobile" 
-          @toggle-sidebar="isSidebarOpen = !isSidebarOpen" 
-        />
+      <main class="dashboard-content" :class="{ 'dashboard-content--mobile': isMobile }">
+        <router-view />
+      </main>
 
-        <!-- Área de contenido — aquí se renderizan las vistas hijas -->
-        <main class="dashboard-content" :class="{ 'dashboard-content--mobile': isMobile }">
-          <router-view />
-        </main>
-
-        <!-- Menú flotante móvil para staff -->
-        <FloatingMobileMenu v-if="isMobile" />
-      </div>
-    </template>
+      <FloatingMobileMenu v-if="isMobile" />
+    </div>
     
     <!-- Centro de Notificaciones en Tiempo Real Global -->
     <RealTimeNotificationCenter />
@@ -84,15 +64,19 @@ import AppSidebar from '../components/AppSidebar.vue';
 import AppHeader from '../components/AppHeader.vue';
 import FloatingMobileMenu from '../components/FloatingMobileMenu.vue';
 import RealTimeNotificationCenter from '../../../components/common/RealTimeNotificationCenter.vue';
+import api from '../../../core/network/axios';
+import { syncServerClock } from '../../../core/time/raceTime';
 
 const isSidebarOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 1023px)');
 const { currentUser, logout } = useAuth();
+const showAdminMobileHint = ref(true);
 
 const rollCallAlert = ref('');
 const isRollCallSender = ref(false);
 let alertTimeout = null;
 let mountainChannel = null;
+let clockSyncInterval = null;
 
 const isAdmin = computed(() => {
   return currentUser.value?.role?.toUpperCase() === 'ADMIN';
@@ -141,44 +125,41 @@ function playNotificationSound() {
 
 onMounted(() => {
   console.log('[DashboardView] Mounted. Current user:', currentUser.value);
-  if (window.Echo) {
-    mountainChannel = window.Echo.channel('race-mountain');
-    console.log('[DashboardView] Subscribed to race-mountain channel');
 
-    mountainChannel.listen('.RollCallStarted', (e) => {
-      const role = currentUser.value?.role?.toUpperCase();
-      isRollCallSender.value = (role === 'PARTIDA');
-      console.log('[DashboardView] RollCallStarted event received:', e, 'Role:', role, 'isSender:', isRollCallSender.value);
+  syncServerClock(api);
+  clockSyncInterval = setInterval(() => syncServerClock(api), 5 * 60 * 1000);
 
-      // Remove emojis from message for a cleaner design
-      let cleanMsg = e.message ? e.message.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '') : '';
-      cleanMsg = cleanMsg.trim().replace(/^📢\s*/, '');
-      
-      if (isRollCallSender.value) {
-        rollCallAlert.value = 'Se notificó al personal en meta e intermedio.';
-      } else {
-        rollCallAlert.value = cleanMsg || 'Juez de Partida pasando lista. Prepárense en sus puestos.';
-        playNotificationSound(); // Solo suena en los receptores
-      }
-      console.log('[DashboardView] Set rollCallAlert to:', rollCallAlert.value);
-      
-      if (alertTimeout) clearTimeout(alertTimeout);
-      // Duration: 15 seconds
-      alertTimeout = setTimeout(() => {
-        rollCallAlert.value = '';
-        console.log('[DashboardView] rollCallAlert cleared.');
-      }, 15000);
-    });
-  } else {
-    console.warn('[DashboardView] window.Echo is not defined!');
-  }
+  const onRollCallStarted = (ev) => {
+    const e = ev.detail || {};
+    const role = currentUser.value?.role?.toUpperCase();
+    isRollCallSender.value = (role === 'PARTIDA');
+
+    let cleanMsg = e.message
+      ? e.message.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '')
+      : '';
+    cleanMsg = cleanMsg.trim().replace(/^📢\s*/, '');
+
+    if (isRollCallSender.value) {
+      rollCallAlert.value = 'Se notificó al personal en meta e intermedio.';
+    } else {
+      rollCallAlert.value = cleanMsg || 'Juez de Partida pasando lista. Prepárense en sus puestos.';
+      playNotificationSound();
+    }
+
+    if (alertTimeout) clearTimeout(alertTimeout);
+    alertTimeout = setTimeout(() => {
+      rollCallAlert.value = '';
+    }, 15000);
+  };
+
+  window.addEventListener('roll-call-started', onRollCallStarted);
+  mountainChannel = { off: () => window.removeEventListener('roll-call-started', onRollCallStarted) };
 });
 
 onBeforeUnmount(() => {
   if (alertTimeout) clearTimeout(alertTimeout);
-  if (mountainChannel && window.Echo) {
-    mountainChannel.stopListening('.RollCallStarted');
-  }
+  if (clockSyncInterval) clearInterval(clockSyncInterval);
+  if (mountainChannel?.off) mountainChannel.off();
 });
 </script>
 
@@ -195,18 +176,22 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* Previene desbordamiento en contenedores flex */
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 /* Margen adicional en móvil para evitar tapado por la barra flotante */
 .dashboard-main--mobile {
   position: relative;
+  width: 100%;
 }
 
 /* Área de contenido con scroll propio */
 .dashboard-content {
   flex: 1;
+  min-height: 0;
   padding: 20px 16px;
   overflow-y: auto;
 }
@@ -215,77 +200,40 @@ onBeforeUnmount(() => {
   padding-bottom: 96px; /* Espacio extra para el menú flotante bottom */
 }
 
-/* === PANTALLA BLOQUEADORA ADMIN MÓVIL === */
-.admin-mobile-blocker {
-  position: fixed;
-  inset: 0;
-  background: var(--color-background);
+/* === Aviso ADMIN en móvil (no bloquea) === */
+.admin-mobile-hint {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
-  z-index: 9999;
-}
-
-.blocker-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 28px;
-  padding: 36px 28px;
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-  box-shadow: var(--shadow-premium);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.blocker-icon-container {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: rgba(255, 94, 0, 0.08);
-  border: 1.5px solid var(--color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.blocker-icon {
-  font-size: 36px;
-  color: var(--color-primary);
-}
-
-.blocker-card h1 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 22px;
-  font-weight: 900;
-  text-transform: uppercase;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 94, 0, 0.12);
+  border-bottom: 1px solid rgba(255, 94, 0, 0.35);
   color: var(--color-text-primary);
-  letter-spacing: 0.5px;
+  font-size: 13px;
 }
 
-.blocker-desc {
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--color-text-secondary);
+.admin-mobile-hint .material-icons {
+  color: var(--color-primary);
+  font-size: 20px;
 }
 
-.blocker-user-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.05);
+.admin-mobile-hint p {
+  flex: 1;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.hint-dismiss {
   border: 1px solid var(--color-border);
-  padding: 6px 14px;
-  border-radius: 12px;
-}
-
-.user-icon {
-  font-size: 18px;
-  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .user-name {

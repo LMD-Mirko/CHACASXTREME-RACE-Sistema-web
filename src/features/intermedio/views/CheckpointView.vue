@@ -1,25 +1,42 @@
 <template>
   <div class="checkpoint-view-root">
-    <!-- Interfaz de Operación Principal -->
     <div class="operation-layout fade-in">
-      <!-- Caso A: Ya hay largada iniciada -->
       <div v-if="hasStart" class="operation-active-view">
+        <!-- Banner de mesa compartida (3 celulares, 1 punto) -->
+        <div class="mesh-station-banner">
+          <div class="mesh-station-left">
+            <span class="material-icons mesh-icon">hub</span>
+            <div class="mesh-copy">
+              <strong>Punto medio · mesa compartida</strong>
+              <span>{{ checkpointName }} · los 3 celulares se sincronizan en vivo</span>
+            </div>
+          </div>
+          <div class="mesh-stats">
+            <span class="mesh-stat mesh-stat--ok">
+              <span class="material-icons">done_all</span>
+              {{ arrivedCount }}
+            </span>
+            <span class="mesh-stat">
+              <span class="material-icons">pending</span>
+              {{ pendingCount }}
+            </span>
+          </div>
+        </div>
+
         <CheckpointScanner />
         <CheckpointHistory />
         <CheckpointOfflineStatus />
       </div>
 
-      <!-- Caso B: Esperando la largada (si no hay salida no se muestra el panel) -->
       <div v-else class="waiting-start-view">
         <div class="waiting-card">
-          <!-- Cabecera del checkpoint configurado -->
           <div class="waiting-station-header">
             <span class="material-icons station-icon">room</span>
             <h2>{{ checkpointName }}</h2>
             <span class="station-phase">{{ selectedPhase === 'practica' ? 'Prueba' : 'Final' }}</span>
+            <span class="station-mesh-hint">Mesa compartida · varios celulares</span>
           </div>
 
-          <!-- Animación de radar pulsante de carrera -->
           <div class="radar-pulse-container">
             <div class="radar-ring"></div>
             <div class="radar-ring-outer"></div>
@@ -37,10 +54,9 @@
             </div>
           </div>
 
-          <!-- Acciones de reconfiguración o recarga -->
           <div class="waiting-actions">
-            <button class="btn-check-again" @click="loadInitialData" :disabled="isLoading">
-              <span class="material-icons" :class="{ 'rotating': isLoading }">sync</span>
+            <button class="btn-check-again" @click="() => loadInitialData()" :disabled="isLoading">
+              <span class="material-icons" :class="{ rotating: isLoading }">sync</span>
               <span>{{ isLoading ? 'Comprobando...' : 'Recomprobar Estado' }}</span>
             </button>
           </div>
@@ -51,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { onMounted, onBeforeUnmount, watch } from 'vue';
 import { useCheckpoint } from '../hooks/useCheckpoint';
 import CheckpointScanner from '../components/CheckpointScanner.vue';
 import CheckpointHistory from '../components/CheckpointHistory.vue';
@@ -65,20 +81,24 @@ const {
   loadInitialData,
   loadRiders,
   riders,
-  isLoading
+  isLoading,
+  arrivedCount,
+  pendingCount,
+  applyRemoteCheckpointPass,
 } = useCheckpoint();
 
-let channel = null;
-let mountainChannel = null;
 let pollInterval = null;
 
 function startPolling() {
   stopPolling();
   pollInterval = setInterval(() => {
     if (!hasStart.value) {
-      loadInitialData();
+      loadInitialData({ soft: true });
+    } else {
+      // Respaldo si el WebSocket falla entre los 3 celulares
+      loadRiders();
     }
-  }, 6000); // Polling every 6 seconds as backup
+  }, hasStart.value ? 10000 : 6000);
 }
 
 function stopPolling() {
@@ -88,22 +108,25 @@ function stopPolling() {
   }
 }
 
-// React to hasStart flag to handle polling
-watch(hasStart, (started) => {
-  if (!started) {
+watch(
+  hasStart,
+  () => {
     startPolling();
-  } else {
-    stopPolling();
-  }
-}, { immediate: true });
+  },
+  { immediate: true }
+);
 
-const handlePassedCheckpoint = () => {
-  loadRiders();
+const handlePassedCheckpoint = (e) => {
+  const applied = applyRemoteCheckpointPass(e?.detail);
+  if (!applied) {
+    // Correcciones / fase distinta: soft refresh
+    loadRiders();
+  }
 };
 
 const handleRiderIncident = (e) => {
   const incident = e.detail;
-  const idx = riders.value.findIndex(r => r.id === incident.rider_id);
+  const idx = riders.value.findIndex((r) => r.id === incident.rider_id);
   if (idx !== -1) riders.value[idx].race_status = 'DNF';
 };
 
@@ -115,24 +138,28 @@ const handleRaceReset = () => {
   loadInitialData();
 };
 
+const handleCorrections = () => {
+  loadRiders();
+};
+
 onMounted(() => {
   loadInitialData();
-  
+
   window.addEventListener('rider-passed-checkpoint', handlePassedCheckpoint);
-  window.addEventListener('rider-finished', handlePassedCheckpoint);
+  window.addEventListener('rider-finished', handleCorrections);
   window.addEventListener('rider-incident-reported', handleRiderIncident);
   window.addEventListener('category-manga-started', handleMangaStarted);
-  window.addEventListener('corrections-applied', handlePassedCheckpoint);
+  window.addEventListener('corrections-applied', handleCorrections);
   window.addEventListener('race-reset', handleRaceReset);
 });
 
 onBeforeUnmount(() => {
   stopPolling();
   window.removeEventListener('rider-passed-checkpoint', handlePassedCheckpoint);
-  window.removeEventListener('rider-finished', handlePassedCheckpoint);
+  window.removeEventListener('rider-finished', handleCorrections);
   window.removeEventListener('rider-incident-reported', handleRiderIncident);
   window.removeEventListener('category-manga-started', handleMangaStarted);
-  window.removeEventListener('corrections-applied', handlePassedCheckpoint);
+  window.removeEventListener('corrections-applied', handleCorrections);
   window.removeEventListener('race-reset', handleRaceReset);
 });
 </script>
@@ -152,10 +179,92 @@ onBeforeUnmount(() => {
 .operation-active-view {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-/* Waiting View Styles */
+.mesh-station-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 94, 0, 0.08), rgba(16, 185, 129, 0.06));
+  border: 1px solid rgba(255, 94, 0, 0.18);
+}
+
+.mesh-station-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mesh-icon {
+  color: var(--color-primary);
+  font-size: 22px;
+}
+
+.mesh-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mesh-copy strong {
+  font-size: 12.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-primary);
+}
+
+.mesh-copy span {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mesh-stats {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mesh-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-secondary);
+}
+
+.mesh-stat .material-icons {
+  font-size: 14px;
+}
+
+.mesh-stat--ok {
+  color: var(--color-success);
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.station-mesh-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.3px;
+}
+
 .waiting-start-view {
   display: flex;
   align-items: center;
@@ -213,7 +322,6 @@ onBeforeUnmount(() => {
   margin-top: 4px;
 }
 
-/* Radar Pulse Animation */
 .radar-pulse-container {
   position: relative;
   width: 80px;
@@ -238,7 +346,7 @@ onBeforeUnmount(() => {
 
 .beacon-icon {
   font-size: 24px;
-  color: #FFFFFF;
+  color: #ffffff;
   animation: pulseBeacon 2s infinite ease-in-out;
 }
 
@@ -305,7 +413,6 @@ onBeforeUnmount(() => {
   font-size: 16px;
 }
 
-/* Actions */
 .waiting-actions {
   display: flex;
   flex-direction: column;
@@ -318,7 +425,7 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   border: none;
   background: var(--color-primary);
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 13.5px;
   font-weight: 800;
   display: flex;
@@ -334,32 +441,10 @@ onBeforeUnmount(() => {
   opacity: 0.95;
 }
 
-.btn-change-setup-waiting {
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  background: var(--color-input-bg);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-change-setup-waiting:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
 .rotating {
   animation: spin 1.2s infinite linear;
 }
 
-/* Keyframes */
 @keyframes pulseBeacon {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
@@ -380,5 +465,16 @@ onBeforeUnmount(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@media (max-width: 560px) {
+  .mesh-station-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mesh-copy span {
+    white-space: normal;
+  }
 }
 </style>

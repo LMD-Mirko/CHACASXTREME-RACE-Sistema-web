@@ -12,7 +12,7 @@
       </div>
       <div class="telemetry-item">
         <span class="telemetry-lbl">Hora de Largada</span>
-        <strong class="telemetry-val highlight-time">{{ formatTimeOnly(activeCompetition?.start_time) }}</strong>
+        <strong class="telemetry-val highlight-time">{{ formatStartClock(activeCompetition?.start_time) }}</strong>
       </div>
       <div class="telemetry-item">
         <span class="telemetry-lbl">Tiempo Transcurrido</span>
@@ -151,10 +151,11 @@ import MetaGatillo from '../components/desktop/MetaGatillo.vue';
 import MetaQueueTable from '../components/desktop/MetaQueueTable.vue';
 import MetaBrakingQueue from '../components/mobile/MetaBrakingQueue.vue';
 import MetaAssignModal from '../components/mobile/MetaAssignModal.vue';
+import { formatTimeOnly, formatTimeStr } from '../../../core/time/raceTime';
+import { useMangaElapsedStopwatch } from '../../../core/time/useMangaElapsedStopwatch';
 
 const isDesktop = ref(window.innerWidth >= 1024);
 const selectedItemForAssign = ref(null);
-let channel = null;
 
 const {
   loadInitialData,
@@ -210,26 +211,9 @@ watch(() => finishTimeQueue.value.length, (newVal, oldVal) => {
   }
 });
 
-function formatTimeOnly(dateTimeStr) {
+function formatStartClock(dateTimeStr) {
   if (!dateTimeStr) return 'Esperando Largada';
-  try {
-    let cleanStr = String(dateTimeStr);
-    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-      if (cleanStr.includes(' ')) {
-        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
-      } else {
-        cleanStr = cleanStr + 'Z';
-      }
-    }
-    const date = new Date(cleanStr);
-    if (isNaN(date.getTime())) return dateTimeStr;
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  } catch (e) {
-    return dateTimeStr;
-  }
+  return formatTimeOnly(dateTimeStr);
 }
 
 function getMetaArrivalTime(rider) {
@@ -245,34 +229,23 @@ function getMetaArrivalTime(rider) {
   return fallbackPass ? formatTimeStr(fallbackPass.exact_time) : '';
 }
 
-function formatTimeStr(dateStr) {
-  if (!dateStr) return '';
-  try {
-    let cleanStr = String(dateStr);
-    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-      if (cleanStr.includes(' ')) {
-        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
-      } else {
-        cleanStr = cleanStr + 'Z';
-      }
-    }
-    const date = new Date(cleanStr);
-    if (isNaN(date.getTime())) return dateStr;
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  } catch (e) {
-    return dateStr;
-  }
-}
-
 const ridersInRace = computed(() => {
   return riders.value.filter(r => r.race_status === 'en_carrera');
 });
 
 const ridersArrived = computed(() => {
   return riders.value.filter(r => r.race_status === 'llego');
+});
+
+const mangaCompletedLocally = computed(() => {
+  return hasRidersLoaded.value &&
+    riders.value.length > 0 &&
+    ridersInRace.value.length === 0 &&
+    ridersArrived.value.length > 0;
+});
+
+const { stopwatchTime } = useMangaElapsedStopwatch(activeCompetition, {
+  isCompleted: mangaCompletedLocally,
 });
 
 watch(() => riders.value.length, (newLength) => {
@@ -302,89 +275,48 @@ function closeAssignSheet() {
   selectedItemForAssign.value = null;
 }
 
-const stopwatchTime = ref('00:00:00');
-let stopwatchInterval = null;
-
-function updateStopwatch() {
-  if (!activeCompetition.value || !activeCompetition.value.start_time) {
-    stopwatchTime.value = '00:00:00';
-    return;
-  }
-  let startStr = activeCompetition.value.start_time;
-  if (!startStr.includes('T')) {
-    startStr = startStr.replace(' ', 'T') + 'Z';
-  }
-  const start = new Date(startStr).getTime();
-  const now = new Date().getTime();
-  const diff = now - start;
-  if (diff < 0) {
-    stopwatchTime.value = '00:00:00';
-    return;
-  }
-  const hours = Math.floor(diff / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  const seconds = Math.floor((diff % 60000) / 1000);
-  stopwatchTime.value = 
-    String(hours).padStart(2, '0') + ':' +
-    String(minutes).padStart(2, '0') + ':' +
-    String(seconds).padStart(2, '0');
+function onTimeFreezedDom(e) {
+  const d = e.detail || {};
+  addQueueItemLocally({
+    id: d.queue_id,
+    blind_timestamp: d.blind_timestamp,
+    status: 'pendiente',
+  });
 }
 
-watch(() => activeCompetition.value, (newVal) => {
-  if (newVal && newVal.start_time) {
-    if (stopwatchInterval) clearInterval(stopwatchInterval);
-    updateStopwatch();
-    stopwatchInterval = setInterval(updateStopwatch, 1000);
-  }
-}, { immediate: true });
+function onRiderFinishedDom(e) {
+  const d = e.detail || {};
+  handleRiderFinishedEvent(d.exact_time);
+  loadInitialData();
+}
+
+function onTimeAnnulledDom(e) {
+  const d = e.detail || {};
+  finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== d.queue_id);
+}
+
+function onQueueClearedDom() {
+  finishTimeQueue.value = [];
+}
 
 onMounted(() => {
   loadInitialData();
   window.addEventListener('resize', checkViewport);
   window.addEventListener('category-manga-started', loadInitialData);
-
-  // Suscripción en tiempo real a Laravel Echo / Reverb
-  if (window.Echo) {
-    channel = window.Echo.channel('race-timing');
-
-    // Escucha de pulsador en meta (Laptop)
-    channel.listen('.TimeFreezedInMeta', (e) => {
-      addQueueItemLocally({
-        id: e.queue_id,
-        blind_timestamp: e.blind_timestamp,
-        status: 'pendiente'
-      });
-    });
-
-    // Escucha de corredor asignado
-    channel.listen('.RiderFinished', (e) => {
-      handleRiderFinishedEvent(e.exact_time);
-      loadInitialData(); // reload riders list to update statuses in columns
-    });
-
-    // Escucha de tiempo anulado
-    channel.listen('.TimeAnnulledInMeta', (e) => {
-      finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== e.queue_id);
-    });
-
-    // Escucha de limpieza de cola
-    channel.listen('.QueueClearedInMeta', () => {
-      finishTimeQueue.value = [];
-    });
-
-  }
+  // Bus DOM (NotificationCenter) — evita stopListening que mataba notificaciones globales
+  window.addEventListener('time-freezed-in-meta', onTimeFreezedDom);
+  window.addEventListener('rider-finished', onRiderFinishedDom);
+  window.addEventListener('time-annulled-in-meta', onTimeAnnulledDom);
+  window.addEventListener('queue-cleared-in-meta', onQueueClearedDom);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkViewport);
   window.removeEventListener('category-manga-started', loadInitialData);
-  if (stopwatchInterval) clearInterval(stopwatchInterval);
-  if (channel && window.Echo) {
-    channel.stopListening('.TimeFreezedInMeta');
-    channel.stopListening('.RiderFinished');
-    channel.stopListening('.TimeAnnulledInMeta');
-    channel.stopListening('.QueueClearedInMeta');
-  }
+  window.removeEventListener('time-freezed-in-meta', onTimeFreezedDom);
+  window.removeEventListener('rider-finished', onRiderFinishedDom);
+  window.removeEventListener('time-annulled-in-meta', onTimeAnnulledDom);
+  window.removeEventListener('queue-cleared-in-meta', onQueueClearedDom);
 });
 </script>
 

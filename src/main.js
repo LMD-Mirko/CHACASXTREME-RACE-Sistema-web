@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import './style.css'
 import './core/network/echo'
+import './core/network/wsStatus'
 import App from './App.vue'
 import router from './router'
 

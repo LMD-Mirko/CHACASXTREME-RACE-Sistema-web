@@ -1,61 +1,70 @@
 import { ref } from 'vue';
+import { ensureRaceChannels, recoverSocketAfterForeground, softReconnectSocket } from './raceRealtime';
 
 export const wsStatus = ref('connecting');
 
-if (window.Echo && window.Echo.connector && window.Echo.connector.pusher) {
+function bindPusherWatchdog() {
+  if (!window.Echo?.connector?.pusher) {
+    // Echo aún no listo: reintentar
+    setTimeout(bindPusherWatchdog, 300);
+    return;
+  }
+
   const pusher = window.Echo.connector.pusher;
   wsStatus.value = pusher.connection.state;
 
   pusher.connection.bind('state_change', (states) => {
     wsStatus.value = states.current;
     console.log('[WebSocket Status] State changed to:', states.current);
-    
-    // Si la conexión entra en fallo o se desconecta, forzar reconexión inmediata
-    if (states.current === 'unavailable' || states.current === 'failed' || states.current === 'disconnected') {
-      console.warn('[WebSocket Status] Conexión inactiva o caída. Intentando reconectar...');
-      try {
-        pusher.connect();
-      } catch (err) {
-        console.error('[WebSocket Status] Error al forzar reconexión:', err);
-      }
+
+    if (states.current === 'connected') {
+      ensureRaceChannels();
+      window.dispatchEvent(new CustomEvent('ws-connected'));
+    }
+
+    if (
+      states.current === 'unavailable' ||
+      states.current === 'failed' ||
+      states.current === 'disconnected'
+    ) {
+      console.warn('[WebSocket Status] Caído. Reintento suave...');
+      softReconnectSocket();
     }
   });
 
-  // BUCLE DE SEGURIDAD: Cada 5 segundos verifica que no nos hayamos quedado desconectados en segundo plano
+  // Vigilancia cada 8s (menos agresivo en móvil)
   setInterval(() => {
     const currentState = pusher.connection.state;
     if (currentState !== 'connected' && currentState !== 'connecting') {
-      console.warn(`[WebSocket Status] Vigilancia detectó estado '${currentState}'. Forzando reconexión...`);
-      try {
-        pusher.connect();
-      } catch (err) {
-        console.error('[WebSocket Status] Error en bucle de reconexión:', err);
-      }
+      console.warn(`[WebSocket Status] Vigilancia: '${currentState}'. Reconectando...`);
+      softReconnectSocket();
     }
-  }, 5000);
+  }, 8000);
 
-  // Escuchar cuando el celular se despierta, la pestaña vuelve a ser visible o se cambia de app
+  // Al volver a la app: NO hacer disconnect()+connect() si ya está connected
+  // (eso mataba suscripciones en iOS/Android)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      console.log('[WebSocket Status] Aplicación visible. Reiniciando conexión WebSocket para evitar sockets zombis...');
-      try {
-        pusher.disconnect();
-        pusher.connect();
-      } catch (err) {
-        console.error('[WebSocket Status] Error al reiniciar socket por visibilidad:', err);
-      }
+      console.log('[WebSocket Status] App visible → recover');
+      recoverSocketAfterForeground();
     }
   });
 
-  // Escuchar enfoque de ventana/pestaña
-  window.addEventListener('focus', () => {
-    if (pusher.connection.state !== 'connected' && pusher.connection.state !== 'connecting') {
-      console.log('[WebSocket Status] Pestaña enfocada. Forzando reconexión...');
-      try {
-        pusher.connect();
-      } catch (err) {
-        console.error('[WebSocket Status] Error al reconectar en focus:', err);
-      }
-    }
+  window.addEventListener('online', () => {
+    console.log('[WebSocket Status] Red online → recover');
+    recoverSocketAfterForeground();
   });
+
+  window.addEventListener('focus', () => {
+    softReconnectSocket();
+  });
+
+  // Primer ensure
+  if (pusher.connection.state === 'connected') {
+    ensureRaceChannels();
+  } else {
+    softReconnectSocket();
+  }
 }
+
+bindPusherWatchdog();

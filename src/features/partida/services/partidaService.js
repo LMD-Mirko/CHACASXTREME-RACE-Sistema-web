@@ -88,6 +88,22 @@ export async function notifyRollCallStart(data) {
 }
 
 /**
+ * Estado del pase de lista (presentes sincronizados).
+ */
+export async function getRollCallState(params) {
+  const response = await api.get('/api/category-starts/roll-call/state', { params });
+  return response.data.data;
+}
+
+/**
+ * Marca / desmarca un piloto presente (multi-teléfono).
+ */
+export async function updateRollCallPresence(data) {
+  const response = await api.post('/api/category-starts/roll-call/presence', data);
+  return response.data.data;
+}
+
+/**
  * Notifica que ha finalizado el pase de lista y transmite la lista de presentes.
  */
 export async function notifyRollCallFinish(data) {

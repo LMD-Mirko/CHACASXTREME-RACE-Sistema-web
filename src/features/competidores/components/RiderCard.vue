@@ -16,7 +16,7 @@
       </div>
       <div class="plate-badge">
         <span class="plate-label">N°</span>
-        <span class="plate-value">{{ rider.plate_number }}</span>
+        <span class="plate-value">{{ hasPlate ? rider.plate_number : '—' }}</span>
       </div>
     </div>
 
@@ -24,6 +24,7 @@
     <div class="card-body">
       <h3 class="rider-name">{{ rider.full_name }}</h3>
       <p class="rider-nickname" v-if="rider.nickname">"{{ rider.nickname }}"</p>
+      <span v-if="rider.profile_incomplete" class="incomplete-pill">Ficha incompleta</span>
       
       <div class="rider-meta">
         <div class="meta-item">
@@ -51,6 +52,15 @@
 
       <!-- Botones de acción táctiles -->
       <div class="action-buttons">
+        <button
+          type="button"
+          class="btn-plate-assign"
+          :class="{ 'is-reassign': hasPlate }"
+          @click="$emit('assign-plate', rider)"
+        >
+          {{ hasPlate ? 'Reasignar' : 'Asignar placa' }}
+        </button>
+
         <AppTooltip content="Ver detalles">
           <AppButton
             variant="icon-action"
@@ -81,6 +91,16 @@
           />
         </AppTooltip>
 
+        <AppTooltip content="Link ficha">
+          <AppButton
+            variant="icon-action"
+            icon="link"
+            class="btn-profile-link"
+            @click="$emit('share-profile', rider)"
+            aria-label="Enlace para completar ficha"
+          />
+        </AppTooltip>
+
         <AppTooltip content="Eliminar" align="right">
           <AppButton
             variant="icon-action"
@@ -98,18 +118,25 @@
 <script setup>
 import { computed } from 'vue';
 import { getStatusStyle } from '../../../core/constants/riderStatusStyles';
+import { storageUrl } from '../../../core/network/storageUrl';
 
 const props = defineProps({
   rider: { type: Object, required: true },
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile']);
 
 const statusStyle = computed(() => getStatusStyle(props.rider.race_status));
 
+const hasPlate = computed(() => {
+  const p = props.rider?.plate_number;
+  return p != null && p !== '' && Number(p) > 0;
+});
+
 function resolvePhotoUrl(path) {
-  if (path.startsWith('http')) return path;
-  return `http://127.0.0.1:8000/storage/${path}`;
+  if (!path) return '';
+  if (String(path).startsWith('http')) return path;
+  return storageUrl(path);
 }
 
 function handleImageError(event) {
@@ -213,6 +240,21 @@ function getInitials(name) {
   margin-bottom: 6px;
 }
 
+.incomplete-pill {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
 .rider-meta {
   display: flex;
   flex-direction: column;
@@ -262,7 +304,31 @@ function getInitials(name) {
 
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 6px;
+}
+
+.btn-plate-assign {
+  appearance: none;
+  border: 1px solid rgba(255, 94, 0, 0.35);
+  background: rgba(255, 94, 0, 0.08);
+  color: var(--color-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.btn-plate-assign.is-reassign {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
 }
 
 /* Hover de botón eliminar específico de la tarjeta */

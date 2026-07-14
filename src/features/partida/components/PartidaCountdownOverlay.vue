@@ -109,32 +109,49 @@ const strokeDashArrayVal = computed(() => {
   opacity: 0.8;
 }
 
-/* Diagonal Background Wipe */
+/* Fondo ambient full-bleed (el antiguo wipe a 140vw + translateX(-20vw) cortaba un lado) */
 .overlay-slanted-wipe {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 140vw;
-  height: 100%;
-  background: radial-gradient(circle at 75% 20%, rgba(255, 94, 0, 0.15) 0%, transparent 60%),
-              #0a0a0a;
-  border-left: 6px solid #ff5e00;
-  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.95);
-  transform: skewX(-15deg) translateX(-20vw);
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255, 94, 0, 0.16) 0%, transparent 55%),
+    #0a0a0a;
   z-index: 2;
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.overlay-slanted-wipe::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  width: 4px;
+  height: 140%;
+  margin-left: -2px;
+  background: #ff5e00;
+  box-shadow: 0 0 28px rgba(255, 94, 0, 0.45);
+  transform: skewX(-12deg) translateX(-18vw);
+  opacity: 0.85;
+  transition: background 0.5s ease, box-shadow 0.5s ease;
 }
 
 .slanted-wipe--go {
-  background: radial-gradient(circle at 75% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
-              #060d09;
-  border-left-color: #10b981;
-  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.95), 0 0 50px rgba(16, 185, 129, 0.1);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(16, 185, 129, 0.14) 0%, transparent 55%),
+    #060d09;
 }
 
-/* Content layout */
+.slanted-wipe--go::before {
+  background: #10b981;
+  box-shadow: 0 0 28px rgba(16, 185, 129, 0.4);
+}
+
+/* Content layout — anclado al viewport, siempre centrado */
 .overlay-content {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -143,7 +160,15 @@ const strokeDashArrayVal = computed(() => {
   gap: 2.5rem;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 1rem;
+  box-sizing: border-box;
   text-align: center;
+  pointer-events: none;
+}
+
+.overlay-content > * {
+  pointer-events: auto;
 }
 
 /* Glowing Pulse Ring */

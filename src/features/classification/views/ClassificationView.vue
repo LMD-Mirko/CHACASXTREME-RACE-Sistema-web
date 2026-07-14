@@ -10,15 +10,51 @@
         </div>
       </div>
       
-      <!-- Badges de Fase Activa -->
+      <!-- Selector de manga + badge operativa -->
       <div class="phase-badge-wrapper" v-if="activeCompetition">
+        <div class="view-phase-tabs">
+          <button
+            class="view-phase-tab"
+            :class="{ 'view-phase-tab--active': viewPhase === 'practica' }"
+            @click="setViewPhase('practica')"
+          >
+            Clasificación
+          </button>
+          <button
+            class="view-phase-tab"
+            :class="{ 'view-phase-tab--active': viewPhase === 'final' }"
+            @click="setViewPhase('final')"
+          >
+            Final
+          </button>
+        </div>
         <span class="phase-badge" :class="activeCompetition.current_phase">
-          FASE {{ activeCompetition.current_phase === 'practica' ? 'PRUEBA' : 'FINAL' }}
+          OPERATIVA: {{ activeCompetition.current_phase === 'practica' ? 'CLASIFICACIÓN' : 'FINAL' }}
         </span>
         <span class="live-dot-indicator">
           <span class="dot"></span>
           EN VIVO
         </span>
+      </div>
+    </div>
+
+    <!-- Duración de manga -->
+    <div v-if="manga" class="manga-duration-card" :class="{ 'manga-duration-card--closed': mangaIsClosed }">
+      <div class="manga-duration-main">
+        <span class="material-icons">timer</span>
+        <div>
+          <strong>{{ mangaIsClosed ? 'Manga cerrada' : 'Manga en curso' }}</strong>
+          <p>
+            {{ mangaIsClosed
+              ? 'Duración (salida → último):'
+              : `En pista: ${stillRacing} · Tiempo transcurrido:` }}
+            <span class="duration-val">{{ mangaDurationLabel }}</span>
+          </p>
+        </div>
+      </div>
+      <div class="manga-duration-meta" v-if="manga.arrived_count != null">
+        <span>{{ manga.arrived_count }} llegaron</span>
+        <span>{{ manga.dnf_count }} DNF</span>
       </div>
     </div>
 
@@ -91,6 +127,9 @@
               <th class="col-time">META</th>
               <th class="col-net">TIEMPO NETO</th>
               <th class="col-gap">DIF. LÍDER</th>
+              <th v-if="isFinalView" class="col-clasif">CLASIF. PUESTO</th>
+              <th v-if="isFinalView" class="col-clasif">CLASIF. TIEMPO</th>
+              <th v-if="canMarkDnf" class="col-actions">ACCIÓN</th>
             </tr>
           </thead>
           <tbody>
@@ -194,6 +233,26 @@
                   <span class="main-gap">{{ getFormattedGap(rider) }}</span>
                 </div>
               </td>
+
+              <td v-if="isFinalView" class="col-clasif text-center font-bold">
+                {{ rider.clasificacion_position ? rider.clasificacion_position + 'º' : '—' }}
+              </td>
+              <td v-if="isFinalView" class="col-clasif text-mono">
+                {{ rider.clasificacion_time || '—' }}
+              </td>
+
+              <td v-if="canMarkDnf" class="col-actions text-center">
+                <button
+                  v-if="rider.status === 'EN RUTA'"
+                  type="button"
+                  class="btn-dnf-row"
+                  :disabled="markingDnfId === rider.id"
+                  @click="markRiderDnf(rider)"
+                >
+                  DNF
+                </button>
+                <span v-else class="action-dash">—</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -267,6 +326,10 @@
                 <span class="time-item-lbl">Control:</span>
                 <span class="time-item-val">{{ formatTo12Hour(rider.intermediate_time) }}</span>
               </div>
+              <div class="card-time-item" v-if="isFinalView && rider.clasificacion_position">
+                <span class="time-item-lbl">Clasif:</span>
+                <span class="time-item-val">{{ rider.clasificacion_position }}º · {{ rider.clasificacion_time }}</span>
+              </div>
             </div>
           </div>
 
@@ -301,6 +364,16 @@
               </span>
             </div>
           </div>
+
+          <button
+            v-if="canMarkDnf && rider.status === 'EN RUTA'"
+            type="button"
+            class="btn-dnf-card"
+            :disabled="markingDnfId === rider.id"
+            @click="markRiderDnf(rider)"
+          >
+            Marcar DNF (no llegó)
+          </button>
         </div>
       </div>
 
@@ -320,15 +393,23 @@ const {
   activeCompetition,
   categories,
   activeCategoryId,
+  viewPhase,
+  isFinalView,
   searchQuery,
   isLoading,
   filteredClassifications,
-  loadClassifications
+  manga,
+  mangaDurationLabel,
+  mangaIsClosed,
+  stillRacing,
+  canMarkDnf,
+  markingDnfId,
+  setViewPhase,
+  markRiderDnf,
 } = useClassification();
 
 function setCategory(id) {
   activeCategoryId.value = id;
-  loadClassifications();
 }
 
 function statusClass(status) {
@@ -387,6 +468,98 @@ function getFormattedGap(rider) {
 </script>
 
 <style scoped>
+.manga-duration-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manga-duration-card--closed {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.manga-duration-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.manga-duration-main .material-icons {
+  color: var(--color-primary);
+  margin-top: 2px;
+}
+
+.manga-duration-main strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.manga-duration-main p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.duration-val {
+  color: var(--color-primary);
+  font-weight: 800;
+  font-family: var(--font-headings);
+  margin-left: 4px;
+}
+
+.manga-duration-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.btn-dnf-row {
+  border: none;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.btn-dnf-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-dnf-card {
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  border-radius: 12px;
+  min-height: 44px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.action-dash {
+  color: var(--color-text-secondary);
+}
+
+.col-actions {
+  width: 72px;
+}
+
 .classification-container {
   display: flex;
   flex-direction: column;
@@ -432,6 +605,31 @@ function getFormattedGap(rider) {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.view-phase-tabs {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.view-phase-tab {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: var(--font-family);
+}
+
+.view-phase-tab--active {
+  background: var(--color-primary);
+  color: #fff;
 }
 
 .phase-badge {
@@ -652,6 +850,7 @@ function getFormattedGap(rider) {
 .col-plate { width: 80px; }
 .col-status { width: 100px; }
 .col-time { width: 90px; }
+.col-clasif { width: 100px; }
 .col-check { width: 110px; }
 .col-net { width: 110px; }
 .col-gap { width: 90px; }

@@ -51,6 +51,20 @@
             <span class="info-label">Contacto Emergencia:</span>
             <span class="info-value phone-text">{{ rider.emergency_phone }}</span>
           </div>
+          <template v-if="rider.guardian_full_name || rider.guardian_dni || rider.guardian_phone">
+            <div class="info-item">
+              <span class="info-label">Apoderado:</span>
+              <span class="info-value">{{ rider.guardian_full_name || '—' }}</span>
+            </div>
+            <div class="info-item" v-if="rider.guardian_dni">
+              <span class="info-label">DNI apoderado:</span>
+              <span class="info-value">{{ rider.guardian_dni }}</span>
+            </div>
+            <div class="info-item" v-if="rider.guardian_phone">
+              <span class="info-label">Tel. apoderado:</span>
+              <span class="info-value phone-text">{{ rider.guardian_phone }}</span>
+            </div>
+          </template>
           <div class="info-item" v-if="rider.instagram">
             <span class="info-label">Instagram:</span>
             <span class="info-value insta-text">{{ rider.instagram }}</span>
@@ -74,6 +88,7 @@
 <script setup>
 import { computed } from 'vue';
 import { getStatusStyle } from '../../../core/constants/riderStatusStyles';
+import { storageUrl } from '../../../core/network/storageUrl';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -85,8 +100,9 @@ defineEmits(['close']);
 const statusStyle = computed(() => getStatusStyle(props.rider?.race_status));
 
 function resolvePhotoUrl(path) {
-  if (path.startsWith('http')) return path;
-  return `http://127.0.0.1:8000/storage/${path}`;
+  if (!path) return '';
+  if (String(path).startsWith('http')) return path;
+  return storageUrl(path);
 }
 
 function getInitials(name) {

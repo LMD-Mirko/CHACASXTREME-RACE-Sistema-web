@@ -3,6 +3,18 @@
     {
       "source": "/api/:path*",
       "destination": "http://24.199.82.193:8888/api/:path*"
-    }
+    },
+    {
+      "source": "/storage/:path*",
+      "destination": "http://24.199.82.193:8888/storage/:path*"
+    },
+    {
+      "source": "/broadcasting/:path*",
+      "destination": "http://24.199.82.193:8888/broadcasting/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+  }
   ]
 }

@@ -18,7 +18,7 @@
       </div>
       <div class="telemetry-item">
         <span class="telemetry-lbl">Largada</span>
-        <span class="telemetry-val-tech highlight-time">{{ formatTimeOnly(activeCompetition?.start_time) }}</span>
+        <span class="telemetry-val-tech highlight-time">{{ formatStartClock(activeCompetition?.start_time) }}</span>
       </div>
       <div class="telemetry-item">
         <span class="telemetry-lbl">Transcurrido</span>
@@ -107,7 +107,10 @@
           v-for="rider in activeRidersList"
           :key="rider.id"
           class="rider-tactile-card"
-          :class="{ 'rider-tactile-card--arrived': hasRiderPassedLocal(rider) }"
+          :class="{
+            'rider-tactile-card--arrived': hasRiderPassedLocal(rider),
+            'rider-tactile-card--remote-flash': remoteFlashPlate === parseInt(rider.plate_number, 10),
+          }"
           @click="onRiderTap(rider)"
         >
           <!-- Izquierda: Placa de Competición -->
@@ -196,13 +199,21 @@
       </Transition>
     </Teleport>
 
-    <!-- TOAST DE ERROR PERSONALIZADO (NO ALERTS NATIVOS) -->
+    <!-- TOAST DE ERROR / MESA COMPARTIDA -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="errorToastMessage" class="error-toast-overlay">
-          <div class="error-toast-box">
-            <span class="material-icons error-toast-icon">warning</span>
-            <span class="error-toast-text">{{ errorToastMessage }}</span>
+        <div v-if="errorToastMessage || meshNotice" class="error-toast-overlay">
+          <div
+            class="error-toast-box"
+            :class="{
+              'error-toast-box--remote': meshNotice?.type === 'remote',
+              'error-toast-box--warn': meshNotice?.type === 'warn' || meshNotice?.type === 'error',
+            }"
+          >
+            <span class="material-icons error-toast-icon">
+              {{ meshNotice?.type === 'remote' ? 'devices' : 'warning' }}
+            </span>
+            <span class="error-toast-text">{{ errorToastMessage || meshNotice?.message }}</span>
           </div>
         </div>
       </Transition>
@@ -211,8 +222,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import { useCheckpoint } from '../hooks/useCheckpoint';
+import { formatTimeOnly } from '../../../core/time/raceTime';
+import { useMangaElapsedStopwatch } from '../../../core/time/useMangaElapsedStopwatch';
 
 const {
   checkpointName,
@@ -222,16 +235,18 @@ const {
   ridersAll,
   ridersPending,
   ridersArrived,
-  showCheckModal,
   lastCheckedRider,
-  registerPass
+  registerPass,
+  remoteFlashPlate,
+  meshNotice,
+  hasRiderPassed,
 } = useCheckpoint();
 
 const activeTab = ref('pending'); // 'pending', 'arrived', 'all'
 const searchMode = ref('plate'); // 'plate' (numeric) or 'name' (text)
-const stopwatchTime = ref('00:00:00');
 const searchInputRef = ref(null);
-let stopwatchInterval = null;
+
+const { stopwatchTime } = useMangaElapsedStopwatch(activeCompetition);
 
 // Modal de confirmación y estado del piloto seleccionado
 const showConfirmModal = ref(false);
@@ -289,23 +304,35 @@ function triggerConfirmFlow(rider) {
 }
 
 function onRiderTap(rider) {
-  // Si el competidor ya registró su paso, ignorar clics y no abrir el modal
-  if (hasRiderPassedLocal(rider)) return;
+  if (hasRiderPassedLocal(rider)) {
+    showErrorToast(`#${rider.plate_number} ya está marcado en la mesa`);
+    return;
+  }
   triggerConfirmFlow(rider);
 }
 
-// Confirmar paso de piloto e iniciar animación de éxito
 async function confirmRiderPass() {
   if (!selectedRiderToConfirm.value) return;
-  
+
   const plate = selectedRiderToConfirm.value.plate_number;
   showConfirmModal.value = false;
-  
-  // Registrar el paso
-  await registerPass(plate);
+
+  const result = await registerPass(plate);
   searchQuery.value = '';
-  
-  // Mostrar pantalla de éxito estilo pago con tarjeta
+
+  if (result?.already) {
+    selectedRiderToConfirm.value = null;
+    return;
+  }
+
+  if (!result?.ok) {
+    selectedRiderToConfirm.value = null;
+    if (result?.reason === 'error') {
+      showErrorToast('No se pudo registrar el pase');
+    }
+    return;
+  }
+
   showSuccessOverlay.value = true;
   setTimeout(() => {
     showSuccessOverlay.value = false;
@@ -313,72 +340,17 @@ async function confirmRiderPass() {
   }, 1800);
 }
 
-// Helper reactivo local para colorear las tarjetas ya registradas
 function hasRiderPassedLocal(rider) {
-  if (!rider || !rider.checkpoint_passes) return false;
-  return rider.checkpoint_passes.some(p => 
-    p.checkpoint_name.toUpperCase() === checkpointName.value.toUpperCase() &&
-    p.phase === selectedPhase.value
-  );
+  return hasRiderPassed(rider);
 }
-
-function updateStopwatch() {
-  if (!activeCompetition.value || !activeCompetition.value.start_time) {
-    stopwatchTime.value = '00:00:00';
-    return;
-  }
-  let startStr = activeCompetition.value.start_time;
-  if (!startStr.includes('T')) {
-    startStr = startStr.replace(' ', 'T') + 'Z';
-  }
-  const start = new Date(startStr).getTime();
-  const now = new Date().getTime();
-  const diff = now - start;
-  if (diff < 0) {
-    stopwatchTime.value = '00:00:00';
-    return;
-  }
-  const hours = Math.floor(diff / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  const seconds = Math.floor((diff % 60000) / 1000);
-  stopwatchTime.value = 
-    String(hours).padStart(2, '0') + ':' +
-    String(minutes).padStart(2, '0') + ':' +
-    String(seconds).padStart(2, '0');
-}
-
-watch(() => activeCompetition.value, (newVal) => {
-  if (newVal && newVal.start_time) {
-    if (stopwatchInterval) clearInterval(stopwatchInterval);
-    updateStopwatch();
-    stopwatchInterval = setInterval(updateStopwatch, 1000);
-  }
-}, { immediate: true });
 
 onBeforeUnmount(() => {
-  if (stopwatchInterval) clearInterval(stopwatchInterval);
+  if (errorToastTimeout) clearTimeout(errorToastTimeout);
 });
 
-function formatTimeOnly(dateTimeStr) {
+function formatStartClock(dateTimeStr) {
   if (!dateTimeStr) return 'No Iniciada';
-  try {
-    let cleanStr = String(dateTimeStr);
-    if (!cleanStr.includes('Z') && !cleanStr.includes('+')) {
-      if (cleanStr.includes(' ')) {
-        cleanStr = cleanStr.replace(' ', 'T') + 'Z';
-      } else {
-        cleanStr = cleanStr + 'Z';
-      }
-    }
-    const date = new Date(cleanStr);
-    if (isNaN(date.getTime())) return dateTimeStr;
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  } catch (e) {
-    return dateTimeStr;
-  }
+  return formatTimeOnly(dateTimeStr);
 }
 </script>
 
@@ -691,6 +663,18 @@ function formatTimeOnly(dateTimeStr) {
 .rider-tactile-card--arrived {
   border-color: rgba(16, 185, 129, 0.25);
   background: rgba(16, 185, 129, 0.02);
+}
+
+.rider-tactile-card--remote-flash {
+  animation: remotePassFlash 1.1s ease;
+  border-color: rgba(59, 130, 246, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+@keyframes remotePassFlash {
+  0% { transform: scale(1); background: rgba(59, 130, 246, 0.18); }
+  40% { transform: scale(1.015); background: rgba(59, 130, 246, 0.12); }
+  100% { transform: scale(1); }
 }
 
 .rider-plate-badge {
@@ -1125,13 +1109,31 @@ function formatTimeOnly(dateTimeStr) {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #EF4444; /* Rojo error */
+  background: #EF4444;
   color: #FFFFFF;
   padding: 12px 20px;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25);
   white-space: nowrap;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: min(92vw, 420px);
+}
+
+.error-toast-box--remote {
+  background: #1d4ed8;
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.3);
+}
+
+.error-toast-box--warn {
+  background: #d97706;
+  box-shadow: 0 10px 30px rgba(217, 119, 6, 0.28);
+}
+
+.error-toast-text {
+  white-space: normal;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .error-toast-icon {

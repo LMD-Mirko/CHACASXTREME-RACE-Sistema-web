@@ -1,9 +1,12 @@
-import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import {
   getActiveCompetition, getCategories, getRidersByCategory,
   triggerCategoryStart, resetCategoryStart, closeDeparture, updateRiderStatus,
-  notifyRollCallStart, notifyRollCallFinish, notifyCountdownStart
+  notifyRollCallStart, notifyRollCallFinish, notifyCountdownStart,
+  getRollCallState, updateRollCallPresence,
 } from '../services/partidaService';
+import { formatDeviceRaceTime, parseRaceTimeToEpoch } from '../../../core/time/raceTime';
+import api from '../../../core/network/axios';
 
 const activeCompetition = ref(null);
 const categories = ref([]);
@@ -24,28 +27,23 @@ const startTimeStr = ref('');
 const elapsedTimeMs = ref(0);
 const currentStep = ref(1);
 const isSyncingRiders = ref(false);
+const classifiedIds = ref(new Set());
 let animationFrameId = null;
 let modalTimeout = null;
 
-function parseServerTimeToEpoch(serverTimeStr) {
-  if (!serverTimeStr) return null;
-  // If the server string lacks timezone info, append 'Z' for UTC parsing
-  let isoStr = serverTimeStr.trim();
-  if (!isoStr.includes('T') && !isoStr.includes('Z') && !isoStr.includes('+')) {
-    isoStr = isoStr.replace(' ', 'T') + 'Z';
-  }
-  const epoch = new Date(isoStr).getTime();
-  return isNaN(epoch) ? null : epoch;
+function sameCategoryKey(a, b) {
+  return String(a) === String(b);
 }
 
 export function usePartida() {
   const isIdle = computed(() => raceState.value === 'idle');
   const isCounting = computed(() => raceState.value === 'counting');
   const isActive = computed(() => raceState.value === 'active');
+  const isFinalPhase = computed(() => selectedPhase.value === 'final');
 
   const activeRiders = computed(() => {
     return riders.value.filter(r => {
-      const matchesSearch = searchQuery.value.trim() === '' || 
+      const matchesSearch = searchQuery.value.trim() === '' ||
         r.plate_number.toString().includes(searchQuery.value) ||
         r.full_name.toLowerCase().includes(searchQuery.value.toLowerCase());
       return matchesSearch && r.race_status !== 'DNS';
@@ -54,12 +52,30 @@ export function usePartida() {
 
   const dnsRiders = computed(() => riders.value.filter(r => r.race_status === 'DNS'));
 
-  // Verifica si todos los corredores activos en grilla fueron confirmados como presentes
   const allActiveRidersPresent = computed(() => {
     const active = riders.value.filter(r => r.race_status !== 'DNS');
     if (active.length === 0) return false;
     return active.every(r => presentRiderIds.value.has(r.id));
   });
+
+  function applyPresentIds(ids) {
+    presentRiderIds.value = new Set((ids || []).map((id) => Number(id)));
+  }
+
+  async function hydrateRollCallState() {
+    if (!selectedCategoryId.value) return null;
+    try {
+      const state = await getRollCallState({
+        category_id: selectedCategoryId.value,
+        phase: selectedPhase.value,
+      });
+      applyPresentIds(state.present_rider_ids);
+      return state;
+    } catch (err) {
+      console.error('Error hidratando pase de lista:', err);
+      return null;
+    }
+  }
 
   async function loadInitialData() {
     isLoading.value = true;
@@ -80,19 +96,52 @@ export function usePartida() {
     }
   }
 
+  async function fetchClassifiedIds() {
+    if (!activeCompetition.value) {
+      classifiedIds.value = new Set();
+      return;
+    }
+    try {
+      const response = await api.get(
+        `/api/competitions/${activeCompetition.value.id}/classifications`,
+        { params: { phase: 'practica', category_id: 'all' } }
+      );
+      const rows = response.data.classifications || [];
+      // Clasificado = llegó a META en clasificación
+      const ids = rows
+        .filter(r => r.meta_time || r.status === 'LLEGÓ')
+        .map(r => r.id);
+      classifiedIds.value = new Set(ids);
+    } catch (err) {
+      console.error('Error cargando clasificados', err);
+      classifiedIds.value = new Set();
+    }
+  }
+
   async function loadRiders() {
     if (!selectedCategoryId.value) return;
     isLoading.value = true;
     stopStopwatch();
-    presentRiderIds.value.clear();
-    
+    if (currentStep.value !== 2) {
+      presentRiderIds.value.clear();
+      isGridConfirmed.value = false;
+    }
+
     try {
       if (selectedCategoryId.value === 'all') {
         riders.value = await getRidersByCategory(undefined);
       } else {
         riders.value = await getRidersByCategory(selectedCategoryId.value);
       }
-      isGridConfirmed.value = false;
+
+      if (selectedPhase.value === 'final') {
+        await fetchClassifiedIds();
+        // Solo clasificados en grilla de final
+        riders.value = riders.value.filter(r => classifiedIds.value.has(r.id));
+        riders.value.forEach(r => {
+          if (r.race_status === 'DNS') r.race_status = 'pre_inscrito';
+        });
+      }
 
       if (activeCompetition.value?.category_starts) {
         let regTime = null;
@@ -109,13 +158,13 @@ export function usePartida() {
           const startRecord = activeCompetition.value.category_starts.find(
             s => s.category_id === parseInt(selectedCategoryId.value)
           );
-          regTime = startRecord 
+          regTime = startRecord
             ? (selectedPhase.value === 'practica' ? startRecord.practice_start_time : startRecord.final_start_time)
             : null;
         }
 
         if (regTime) {
-          const epoch = parseServerTimeToEpoch(regTime);
+          const epoch = parseRaceTimeToEpoch(regTime);
           if (epoch) {
             startTime.value = epoch;
             startTimeStr.value = regTime;
@@ -131,6 +180,10 @@ export function usePartida() {
       }
       raceState.value = 'idle';
       elapsedTimeMs.value = 0;
+
+      if (currentStep.value === 2) {
+        await hydrateRollCallState();
+      }
     } catch (error) {
       errorMessage.value = error.friendlyMessage || 'Error al cargar los pilotos.';
     } finally {
@@ -139,31 +192,104 @@ export function usePartida() {
   }
 
   async function startRollCall() {
+    if (selectedPhase.value === 'final' && riders.value.length === 0) {
+      errorMessage.value = 'No hay clasificados para la Final. Completa la Clasificación primero.';
+      return;
+    }
     currentStep.value = 2;
+    isGridConfirmed.value = false;
     try {
-      await notifyRollCallStart({
+      const res = await notifyRollCallStart({
         category_id: selectedCategoryId.value,
         phase: selectedPhase.value
       });
+      const state = res?.data;
+      if (state?.present_rider_ids) {
+        applyPresentIds(state.present_rider_ids);
+      } else if (selectedPhase.value === 'final') {
+        presentRiderIds.value = new Set(
+          riders.value.filter(r => r.race_status !== 'DNS').map(r => r.id)
+        );
+      } else {
+        presentRiderIds.value = new Set();
+      }
     } catch (error) {
       console.error('Error al notificar inicio de pase de lista:', error);
+      if (selectedPhase.value === 'final') {
+        presentRiderIds.value = new Set(
+          riders.value.filter(r => r.race_status !== 'DNS').map(r => r.id)
+        );
+      }
     }
   }
 
-  // Alterna presencia física de piloto
-  function toggleRiderPresence(rider) {
-    if (presentRiderIds.value.has(rider.id)) {
-      presentRiderIds.value.delete(rider.id);
-    } else {
-      presentRiderIds.value.add(rider.id);
-      
-      // Mostrar modal animado de 2 segundos
+  /** Otro teléfono inició pase de lista → entrar a la misma grilla sincronizada */
+  async function joinRemoteRollCall(detail) {
+    if (!detail) return;
+    if (raceState.value === 'active' || currentStep.value === 3) return;
+
+    if (detail.phase && detail.phase !== selectedPhase.value) {
+      selectedPhase.value = detail.phase;
+    }
+    if (detail.category_id != null && !sameCategoryKey(detail.category_id, selectedCategoryId.value)) {
+      selectedCategoryId.value =
+        detail.category_id === 'all' || detail.category_id === '0'
+          ? 'all'
+          : Number(detail.category_id);
+    }
+
+    currentStep.value = 2;
+    isGridConfirmed.value = false;
+    await loadRiders();
+    await hydrateRollCallState();
+  }
+
+  function onRemotePresenceUpdated(detail) {
+    if (!detail) return;
+    if (!sameCategoryKey(detail.category_id, selectedCategoryId.value)) return;
+    if (detail.phase && detail.phase !== selectedPhase.value) return;
+    if (currentStep.value !== 2) return;
+    applyPresentIds(detail.present_rider_ids);
+  }
+
+  /** En final: tocar = marcar AUSENTE (DNS). En clasificación: toggle presente. */
+  async function toggleRiderPresence(rider) {
+    if (selectedPhase.value === 'final') {
+      setRiderDNS(rider.id);
+      return;
+    }
+
+    const willBePresent = !presentRiderIds.value.has(rider.id);
+    // Optimista
+    const next = new Set(presentRiderIds.value);
+    if (willBePresent) {
+      next.add(rider.id);
       lastCheckedRider.value = rider;
       showCheckModal.value = true;
       if (modalTimeout) clearTimeout(modalTimeout);
       modalTimeout = setTimeout(() => {
         showCheckModal.value = false;
       }, 1800);
+    } else {
+      next.delete(rider.id);
+    }
+    presentRiderIds.value = next;
+
+    try {
+      const state = await updateRollCallPresence({
+        category_id: selectedCategoryId.value,
+        phase: selectedPhase.value,
+        rider_id: rider.id,
+        present: willBePresent,
+      });
+      applyPresentIds(state.present_rider_ids);
+    } catch (error) {
+      // Revertir
+      const revert = new Set(presentRiderIds.value);
+      if (willBePresent) revert.delete(rider.id);
+      else revert.add(rider.id);
+      presentRiderIds.value = revert;
+      alert(error.friendlyMessage || 'No se pudo sincronizar la asistencia.');
     }
   }
 
@@ -175,6 +301,18 @@ export function usePartida() {
       if (idx !== -1) {
         riders.value[idx].race_status = 'DNS';
         presentRiderIds.value.delete(riderId);
+        presentRiderIds.value = new Set(presentRiderIds.value);
+      }
+      if (currentStep.value === 2) {
+        try {
+          const state = await updateRollCallPresence({
+            category_id: selectedCategoryId.value,
+            phase: selectedPhase.value,
+            rider_id: riderId,
+            present: false,
+          });
+          applyPresentIds(state.present_rider_ids);
+        } catch (_) { /* DNS ya quedó en API */ }
       }
     } catch (error) {
       alert(error.friendlyMessage || 'Error al marcar DNS.');
@@ -188,7 +326,21 @@ export function usePartida() {
     try {
       await updateRiderStatus(riderId, 'pre_inscrito');
       const idx = riders.value.findIndex(r => r.id === riderId);
-      if (idx !== -1) riders.value[idx].race_status = 'pre_inscrito';
+      if (idx !== -1) {
+        riders.value[idx].race_status = 'pre_inscrito';
+      }
+      if (currentStep.value === 2) {
+        const state = await updateRollCallPresence({
+          category_id: selectedCategoryId.value,
+          phase: selectedPhase.value,
+          rider_id: riderId,
+          present: selectedPhase.value === 'final',
+        });
+        applyPresentIds(state.present_rider_ids);
+      } else if (selectedPhase.value === 'final') {
+        presentRiderIds.value.add(riderId);
+        presentRiderIds.value = new Set(presentRiderIds.value);
+      }
     } catch (error) {
       alert(error.friendlyMessage || 'Error al revertir DNS.');
     } finally {
@@ -238,14 +390,17 @@ export function usePartida() {
     if (!activeCompetition.value || !selectedCategoryId.value) return;
     isLoading.value = true;
     try {
+      const clientStartTime = formatDeviceRaceTime();
       const data = await triggerCategoryStart({
         competition_id: activeCompetition.value.id,
         category_id: selectedCategoryId.value,
-        phase: selectedPhase.value
+        phase: selectedPhase.value,
+        start_time: clientStartTime,
       });
-      const epoch = parseServerTimeToEpoch(data.start_time);
+      const savedStart = data.start_time || clientStartTime;
+      const epoch = parseRaceTimeToEpoch(savedStart);
       startTime.value = epoch;
-      startTimeStr.value = data.start_time;
+      startTimeStr.value = savedStart;
       raceState.value = 'active';
       currentStep.value = 3;
       riders.value.forEach(r => {
@@ -280,6 +435,7 @@ export function usePartida() {
       });
       currentStep.value = 1;
       activeCompetition.value = await getActiveCompetition();
+      await loadRiders();
     } catch (error) {
       errorMessage.value = error.friendlyMessage || 'Error al revertir la largada.';
     } finally {
@@ -290,57 +446,86 @@ export function usePartida() {
   function startStopwatch() {
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     const updateTime = () => {
-      if (startTime.value) {
-        elapsedTimeMs.value = Date.now() - startTime.value;
-        animationFrameId = requestAnimationFrame(updateTime);
-      }
+      if (!startTime.value || !animationFrameId) return;
+      elapsedTimeMs.value = Date.now() - startTime.value;
+      animationFrameId = requestAnimationFrame(updateTime);
     };
     animationFrameId = requestAnimationFrame(updateTime);
   }
 
   function stopStopwatch() {
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
   }
 
   const timeFormatted = computed(() => {
-    const totalMs = elapsedTimeMs.value;
-    if (totalMs <= 0) return '00:00:00.000';
-    const hours = Math.floor(totalMs / 3600000);
-    const minutes = Math.floor((totalMs % 3600000) / 60000);
-    const seconds = Math.floor((totalMs % 60000) / 1000);
-    const ms = Math.floor(totalMs % 1000);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    const ms = elapsedTimeMs.value;
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const millis = Math.floor(ms % 1000);
+    return (
+      String(hours).padStart(2, '0') + ':' +
+      String(minutes).padStart(2, '0') + ':' +
+      String(seconds).padStart(2, '0') + '.' +
+      String(millis).padStart(3, '0')
+    );
   });
+
+  const totalRidersToStart = computed(() => activeRiders.value.length);
+  const totalCategoriesToStart = computed(() => {
+    if (selectedCategoryId.value === 'all') return Math.max(categories.value.length - 1, 0);
+    return 1;
+  });
+
+  const activeCategoryLabel = computed(() => {
+    const cat = categories.value.find(c => c.id === selectedCategoryId.value);
+    return cat?.name || '';
+  });
+
+  const arrivedRidersCount = computed(() =>
+    riders.value.filter(r => r.race_status === 'llego').length
+  );
+
+  const isMangaCompleted = computed(() => {
+    const racing = riders.value.filter(r => r.race_status === 'en_carrera');
+    if (racing.length > 0) return false;
+    const done = riders.value.some(r => r.race_status === 'llego' || r.race_status === 'DNF');
+    return done && !!startTime.value;
+  });
+
+  // Al cerrar manga (todos llego/DNF), congelar el cronómetro local
+  watch(isMangaCompleted, (done) => {
+    if (done) stopStopwatch();
+  });
+
+  async function confirmMangaClosure() {
+    currentStep.value = 1;
+    stopStopwatch();
+    raceState.value = 'idle';
+    await loadRiders();
+  }
+
+  watch([selectedCategoryId, selectedPhase], () => loadRiders());
 
   onBeforeUnmount(() => {
     stopStopwatch();
     if (modalTimeout) clearTimeout(modalTimeout);
   });
 
-  const ridersStillRacing = computed(() => {
-    return riders.value.filter(r => r.race_status === 'en_carrera' || r.race_status === 'pre_inscrito');
-  });
-
-  const isMangaCompleted = computed(() => {
-    return raceState.value === 'active' && riders.value.length > 0 && ridersStillRacing.value.length === 0;
-  });
-
-  watch(isMangaCompleted, (completed) => {
-    if (completed) {
-      stopStopwatch();
-    }
-  });
-
-  watch([selectedCategoryId, selectedPhase], () => loadRiders());
-
   return {
     activeCompetition, categories, selectedCategoryId, selectedPhase, riders,
     searchQuery, isGridConfirmed, isLoading, errorMessage, raceState, countdown,
-    startTime, startTimeStr, elapsedTimeMs, isIdle, isCounting, isActive, activeRiders, dnsRiders,
+    startTime, startTimeStr, elapsedTimeMs, currentStep, isSyncingRiders,
     presentRiderIds, lastCheckedRider, showCheckModal, allActiveRidersPresent, timeFormatted,
-    currentStep, isSyncingRiders, isMangaCompleted,
+    isIdle, isCounting, isActive, isFinalPhase,
+    activeRiders, dnsRiders, totalRidersToStart, totalCategoriesToStart,
+    activeCategoryLabel, arrivedRidersCount, isMangaCompleted,
     loadInitialData, loadRiders, toggleRiderPresence, setRiderDNS, revertRiderDNS,
-    startLaunchCountdown, panicReset, startRollCall
+    startRollCall, joinRemoteRollCall, onRemotePresenceUpdated,
+    startLaunchCountdown, triggerLaunch, panicReset, confirmMangaClosure,
+    closeDeparture, stopStopwatch,
   };
 }

@@ -12,7 +12,7 @@
             :disabled="disabled"
           >
             <span class="material-icons">architecture</span>
-            Práctica
+            Clasificación
           </button>
           <button
             class="phase-btn"

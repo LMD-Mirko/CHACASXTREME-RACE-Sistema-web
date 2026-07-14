@@ -13,6 +13,12 @@ const routes = [
     component: LoginView,
   },
   {
+    path: '/completar-perfil',
+    name: 'completar-perfil',
+    component: () => import('../features/competidores/views/RiderProfileCompleteView.vue'),
+    meta: { public: true },
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: DashboardView,
@@ -74,14 +80,14 @@ const router = createRouter({
 const ROLE_DEFAULT_ROUTES = {
   PARTIDA: '/dashboard/partida',
   INTERMEDIO: '/dashboard/checkpoint',
-  META: '/dashboard/confirmacion',
+  META: '/dashboard/meta',
   ADMIN: '/dashboard/competidores',
 };
 
 const ROLE_ALLOWED_ROUTES = {
   PARTIDA: ['partida', 'categorias-explorer', 'competidores', 'posicion'],
   INTERMEDIO: ['checkpoint', 'categorias-explorer', 'competidores', 'posicion'],
-  META: ['confirmacion', 'categorias-explorer', 'posicion'],
+  META: ['meta', 'confirmacion', 'categorias-explorer', 'posicion'],
 };
 
 router.beforeEach((to, from, next) => {
@@ -89,6 +95,12 @@ router.beforeEach((to, from, next) => {
   const role = localStorage.getItem('user_role')?.toUpperCase();
   
   console.log(`[Router Guard] Navigating from "${from.path}" to "${to.path}" (Name: "${to.name}"). Token: ${!!token}, Role: ${role}`);
+
+  // Formulario público para competidores (sin login)
+  if (to.meta?.public || to.name === 'completar-perfil') {
+    next();
+    return;
+  }
   
   // 1. Si no está autenticado y no va a login, redirigir a login
   if (!token) {

@@ -40,7 +40,7 @@
               @click="handleUpdatePhase('practica')"
               :loading="saving"
             >
-              Modo Práctica
+              Clasificación
             </AppButton>
             <AppButton
               :variant="activeComp.current_phase === 'final' ? 'primary' : 'secondary'"
@@ -48,12 +48,21 @@
               @click="handleUpdatePhase('final')"
               :loading="saving"
             >
-              Carrera Final
+              Final
             </AppButton>
           </div>
           <p class="phase-help-text">
-            Cambia la fase para alternar los listados de clasificación en las pantallas públicas de podios.
+            La fase operativa la usan Partida, Checkpoint y Meta. En Puestos puedes mirar ambas mangas con el selector.
           </p>
+          <AppButton
+            variant="primary"
+            icon="sports"
+            class="btn-prepare-final"
+            @click="handlePrepareFinal"
+            :loading="preparingFinal"
+          >
+            Cerrar Clasificación y Abrir Final
+          </AppButton>
         </div>
       </div>
 
@@ -84,17 +93,33 @@
 
       <!-- Tarjeta de Zona de Peligro (Reinicio de Carrera) -->
       <div class="config-card config-card--danger">
-        <h4 class="text-danger-title">Zona de Peligro</h4>
+        <h4 class="text-danger-title">Zona de Peligro / Reinicios</h4>
         <p class="section-help-text">
-          Reiniciar la carrera borrará de forma permanente todos los tiempos registrados, pases de checkpoints y regresará a todos los corredores al estado pre-inscrito para comenzar una nueva manga limpia.
+          Usa reinicios parciales para ensayos. El reinicio total borra clasificación y final.
         </p>
 
-        <div class="danger-zone-action">
+        <div class="danger-zone-actions">
+          <AppButton
+            variant="secondary"
+            icon="restart_alt"
+            @click="handleResetCompetition('practica')"
+            :loading="resetting"
+          >
+            Reiniciar solo Clasificación
+          </AppButton>
+          <AppButton
+            variant="secondary"
+            icon="restart_alt"
+            @click="handleResetCompetition('final')"
+            :loading="resetting"
+          >
+            Reiniciar solo Final
+          </AppButton>
           <AppButton
             variant="primary"
             icon="delete_forever"
             class="btn-danger-reset"
-            @click="handleResetCompetition"
+            @click="handleResetCompetition('all')"
             :loading="resetting"
           >
             Reiniciar Carrera a 0
@@ -107,13 +132,22 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getActiveCompetition, updateCompetitionPhase, finalizeCategory, getCategories, resetCompetitionResults } from '../services/configuracionService';
+import {
+  getActiveCompetition,
+  updateCompetitionPhase,
+  finalizeCategory,
+  getCategories,
+  resetCompetitionResults,
+  prepareFinal,
+} from '../services/configuracionService';
 
 const activeComp = ref(null);
 const categories = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const finalizingIds = ref([]);
+const preparingFinal = ref(false);
+const resetting = ref(false);
 
 const alertMessage = ref('');
 const alertType = ref('success');
@@ -142,7 +176,7 @@ async function handleUpdatePhase(phase) {
   try {
     const updated = await updateCompetitionPhase(activeComp.value.id, phase);
     activeComp.value = updated;
-    showAlert(`Fase de competencia cambiada exitosamente a ${phase === 'practica' ? 'Práctica' : 'Final'}`);
+    showAlert(`Fase cambiada a ${phase === 'practica' ? 'Clasificación' : 'Final'}`);
   } catch (err) {
     showAlert(err.friendlyMessage || 'Error al actualizar fase', 'error');
   } finally {
@@ -150,9 +184,29 @@ async function handleUpdatePhase(phase) {
   }
 }
 
+async function handlePrepareFinal() {
+  if (!activeComp.value) return;
+  const ok = confirm(
+    '¿Cerrar Clasificación y abrir Final?\n\nSolo quienes tienen META en clasificación entrarán a la grilla. No se borran tiempos de clasificación.'
+  );
+  if (!ok) return;
+
+  preparingFinal.value = true;
+  try {
+    const res = await prepareFinal(activeComp.value.id);
+    activeComp.value = res.data?.competition || { ...activeComp.value, current_phase: 'final' };
+    showAlert(res.message || 'Final preparada.');
+    window.dispatchEvent(new CustomEvent('race-reset'));
+  } catch (err) {
+    showAlert(err.friendlyMessage || 'No se pudo preparar la Final', 'error');
+  } finally {
+    preparingFinal.value = false;
+  }
+}
+
 async function handleFinalizeCategory(cat) {
   if (!activeComp.value) return;
-  const confirmMsg = `¿Deseas consolidar los resultados de la categoría "${cat.name}"? Esta acción fijará los puestos de clasificación y notificará a los podios en vivo.`;
+  const confirmMsg = `¿Deseas consolidar los resultados de la categoría "${cat.name}"?`;
   if (!confirm(confirmMsg)) return;
 
   finalizingIds.value.push(cat.id);
@@ -170,24 +224,33 @@ async function handleFinalizeCategory(cat) {
   }
 }
 
-const resetting = ref(false);
-
-async function handleResetCompetition() {
+async function handleResetCompetition(scope = 'all') {
   if (!activeComp.value) return;
-  
-  const step1 = confirm("⚠️ ATENCIÓN: Esta acción eliminará permanentemente todos los pases por checkpoints, tiempos registrados en meta, bitácoras offline y restablecerá a todos los corredores al estado 'Pre-inscrito'. ¿Deseas continuar?");
+
+  const labels = {
+    all: 'TODA la carrera (clasificación + final)',
+    practica: 'SOLO la Clasificación (ensayos)',
+    final: 'SOLO la Final',
+  };
+
+  const step1 = confirm(
+    `⚠️ Esto reiniciará ${labels[scope]}.\n\n¿Continuar?`
+  );
   if (!step1) return;
 
-  const step2 = confirm("🚨 CONFIRMACIÓN CRÍTICA: ¿Estás absolutamente seguro de querer reiniciar la competencia a cero? Esta acción no se puede deshacer y borrará los resultados activos.");
-  if (!step2) return;
+  if (scope === 'all') {
+    const step2 = confirm('Última confirmación: se borrarán TODOS los tiempos del día. ¿Seguro?');
+    if (!step2) return;
+  }
 
   resetting.value = true;
   try {
-    const res = await resetCompetitionResults(activeComp.value.id);
-    showAlert(`La competencia "${activeComp.value.name}" ha sido reiniciada con éxito. Todos los dispositivos han sido notificados.`);
+    const res = await resetCompetitionResults(activeComp.value.id, scope);
+    showAlert(res.message || 'Reinicio completado.');
     await loadData();
+    window.dispatchEvent(new CustomEvent('race-reset'));
   } catch (err) {
-    showAlert(err.friendlyMessage || 'Error al reiniciar la competencia', 'error');
+    showAlert(err.friendlyMessage || 'Error al reiniciar', 'error');
   } finally {
     resetting.value = false;
   }
@@ -425,6 +488,19 @@ onMounted(loadData);
   border-top: 1px dashed rgba(239, 68, 68, 0.15);
   padding-top: 16px;
   display: flex;
+}
+
+.danger-zone-actions {
+  margin-top: 12px;
+  border-top: 1px dashed rgba(239, 68, 68, 0.15);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-prepare-final {
+  width: 100%;
 }
 
 .btn-danger-reset {

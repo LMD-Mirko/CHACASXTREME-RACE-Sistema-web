@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { BACKEND_API_BASE_URL } from './backend.js';
 
 const api = axios.create({
-  baseURL: '/',
-  timeout: 10000,
+  baseURL: BACKEND_API_BASE_URL,
+  timeout: 30000,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',

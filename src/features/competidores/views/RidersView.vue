@@ -13,18 +13,24 @@
       <span class="material-icons rotating">sync</span>
       <span>Cargando competidores...</span>
     </div>
-    <div v-else-if="errorMessage" class="error-banner">
+    <div v-else-if="errorMessage && riders.length === 0" class="error-banner">
       <span class="material-icons">error_outline</span>
       <span>{{ errorMessage }}</span>
     </div>
 
     <!-- Contenido adaptativo responsivo -->
     <div v-else class="content-layout">
+      <div v-if="errorMessage && !isPlateOpen" class="error-banner error-banner--inline">
+        <span class="material-icons">error_outline</span>
+        <span>{{ errorMessage }}</span>
+      </div>
       <RidersTable
         :riders="riders"
         @edit="openEditModal"
         @change-status="openStatusModal"
         @view-detail="openDetailModal"
+        @assign-plate="openAssignPlateModal"
+        @share-profile="handleShareProfile"
         @delete="handleDelete"
       />
     </div>
@@ -37,6 +43,15 @@
       :is-saving="isLoading"
       @close="isFormOpen = false"
       @save="handleSave"
+    />
+
+    <AssignPlateModal
+      :is-open="isPlateOpen"
+      :rider="selectedRider"
+      :is-saving="isLoading"
+      :server-error="isPlateOpen ? errorMessage : ''"
+      @close="closeAssignPlateModal"
+      @assign="handleAssignPlate"
     />
 
     <RiderStatusModal
@@ -54,6 +69,8 @@
       :rider="selectedRider"
       @close="isDetailOpen = false"
     />
+
+    <div v-if="shareToast" class="share-toast">{{ shareToast }}</div>
   </div>
 </template>
 
@@ -65,6 +82,7 @@ import RidersTable from '../components/RidersTable.vue';
 import RiderFormModal from '../components/RiderFormModal.vue';
 import RiderStatusModal from '../components/RiderStatusModal.vue';
 import RiderDetailModal from '../components/RiderDetailModal.vue';
+import AssignPlateModal from '../components/AssignPlateModal.vue';
 
 const {
   riders,
@@ -78,13 +96,18 @@ const {
   updateStatus,
   handleRetire,
   handleRevertRetire,
+  assignPlate,
+  getProfileLink,
   removeRider,
 } = useRiders();
 
 const isFormOpen = ref(false);
 const isStatusOpen = ref(false);
 const isDetailOpen = ref(false);
+const isPlateOpen = ref(false);
 const selectedRider = ref(null);
+const shareToast = ref('');
+let shareToastTimer = null;
 
 onMounted(() => {
   fetchCategories();
@@ -111,9 +134,55 @@ function openDetailModal(rider) {
   isDetailOpen.value = true;
 }
 
+function openAssignPlateModal(rider) {
+  selectedRider.value = rider;
+  errorMessage.value = '';
+  isPlateOpen.value = true;
+}
+
+function closeAssignPlateModal() {
+  isPlateOpen.value = false;
+  errorMessage.value = '';
+}
+
+function showShareToast(message) {
+  shareToast.value = message;
+  if (shareToastTimer) clearTimeout(shareToastTimer);
+  shareToastTimer = setTimeout(() => {
+    shareToast.value = '';
+  }, 2800);
+}
+
+async function handleShareProfile(rider) {
+  const data = await getProfileLink(rider.id);
+  if (!data?.token) return;
+
+  // URL en ESTE mismo sistema (no la web pública / puerto equivocado)
+  const url = `${window.location.origin}/completar-perfil?token=${encodeURIComponent(data.token)}`;
+  const waText = `Hola ${rider.full_name}! Sube tu foto rider y completa lo que falta para Chacas Xtreme Race.\n\nEntra aquí (enlace personal):\n${url}`;
+  const phone = String(rider.emergency_phone || '').replace(/\D+/g, '');
+  const waPhone = phone ? (phone.startsWith('51') ? phone : `51${phone}`) : '';
+
+  try {
+    await navigator.clipboard.writeText(url);
+    showShareToast(`Link personal copiado: ${url}`);
+  } catch {
+    showShareToast(url);
+  }
+
+  if (waPhone) {
+    window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`, '_blank', 'noopener,noreferrer');
+  }
+}
+
 async function handleSave({ id, data }) {
   const success = await saveRiderData(id, data);
   if (success) isFormOpen.value = false;
+}
+
+async function handleAssignPlate({ id, plate_number }) {
+  const success = await assignPlate(id, plate_number);
+  if (success) closeAssignPlateModal();
 }
 
 async function handleUpdateStatus({ id, status }) {
@@ -132,7 +201,8 @@ async function handleRevertRetireAction(id) {
 }
 
 async function handleDelete(rider) {
-  const confirmMsg = `¿Está seguro de que desea eliminar al competidor "${rider.full_name}" con Placa N° ${rider.plate_number}? Esta acción no se puede deshacer.`;
+  const plateLabel = rider.plate_number ? ` con Placa N° ${rider.plate_number}` : '';
+  const confirmMsg = `¿Está seguro de que desea eliminar al competidor "${rider.full_name}"${plateLabel}? Esta acción no se puede deshacer.`;
   if (confirm(confirmMsg)) {
     await removeRider(rider.id);
   }
@@ -176,6 +246,24 @@ async function handleDelete(rider) {
   border-radius: 12px;
   font-size: 13.5px;
   margin-bottom: 16px;
+}
+
+.share-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  max-width: min(92vw, 420px);
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(255, 94, 0, 0.4);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  word-break: break-all;
 }
 
 @keyframes spin {
