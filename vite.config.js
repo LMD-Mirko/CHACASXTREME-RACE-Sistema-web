@@ -53,7 +53,7 @@ export default defineConfig({
       manifest: {
         name: 'Chacas Xtreme Race',
         short_name: 'ChacasXtreme',
-        description: 'Sistema de Cronometraje y Largada - Chacas Xtreme Race',
+        description: 'Sistema de Cronometraje y Largada - Chacas Xtreme Race 4',
         theme_color: '#ff5e00',
         background_color: '#000000',
         display: 'standalone',
@@ -73,15 +73,15 @@ export default defineConfig({
             purpose: 'any'
           },
           {
-            src: '/pwa-512.png',
+            src: '/pwa-512-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
           },
           {
-            src: '/favicon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: '/apple-touch-icon.png',
+            sizes: '180x180',
+            type: 'image/png',
             purpose: 'any'
           }
         ]
