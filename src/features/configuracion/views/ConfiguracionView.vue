@@ -38,6 +38,7 @@ import CompetitionConfigTab from '../components/CompetitionConfigTab.vue';
 import SponsorsConfigTab from '../components/SponsorsConfigTab.vue';
 import GalleryConfigTab from '../components/GalleryConfigTab.vue';
 import Edition4MediaTab from '../components/Edition4MediaTab.vue';
+import PlateQrConfigTab from '../components/PlateQrConfigTab.vue';
 
 const tabs = [
   { id: 'users', label: 'Usuarios Staff', icon: 'manage_accounts', component: UsersConfigTab },
@@ -46,6 +47,7 @@ const tabs = [
   { id: 'sponsors', label: 'Auspiciadores', icon: 'handshake', component: SponsorsConfigTab },
   { id: 'gallery', label: 'Galería', icon: 'photo_library', component: GalleryConfigTab },
   { id: 'edition4-media', label: 'Media Ed.4', icon: 'folder_zip', component: Edition4MediaTab },
+  { id: 'plate-qr', label: 'Placas QR', icon: 'qr_code_2', component: PlateQrConfigTab },
 ];
 
 const activeTab = ref('users');
