@@ -26,6 +26,25 @@
       </div>
     </div>
 
+    <button type="button" class="qr-mode-btn" @click="qrOpen = true">
+      <span class="material-icons">qr_code_scanner</span>
+      <span class="qr-mode-btn__text">
+        <strong>QR continuo</strong>
+        <small>Escaneá sin salir · registro al instante</small>
+      </span>
+      <span class="material-icons qr-mode-btn__chev">chevron_right</span>
+    </button>
+
+    <ContinuousQrScanner
+      :open="qrOpen"
+      mode="auto"
+      role-label="INTERMEDIO"
+      title="Escaneo continuo"
+      subtitle="Acercate a cada placa. Se registra solo. Tocá Salir cuando termines."
+      :on-commit="commitQrPass"
+      @close="qrOpen = false"
+    />
+
     <!-- Único Buscador / Registrador de Placa en Ruta -->
     <div class="controls-card">
       <div class="control-item">
@@ -226,6 +245,7 @@ import { ref, computed, onBeforeUnmount } from 'vue';
 import { useCheckpoint } from '../hooks/useCheckpoint';
 import { formatTimeOnly } from '../../../core/time/raceTime';
 import { useMangaElapsedStopwatch } from '../../../core/time/useMangaElapsedStopwatch';
+import ContinuousQrScanner from '../../../components/qr/ContinuousQrScanner.vue';
 
 const {
   checkpointName,
@@ -242,11 +262,24 @@ const {
   hasRiderPassed,
 } = useCheckpoint();
 
+const qrOpen = ref(false);
 const activeTab = ref('pending'); // 'pending', 'arrived', 'all'
 const searchMode = ref('plate'); // 'plate' (numeric) or 'name' (text)
 const searchInputRef = ref(null);
 
 const { stopwatchTime } = useMangaElapsedStopwatch(activeCompetition);
+
+async function commitQrPass(rider) {
+  const result = await registerPass(rider.plate_number, { silent: true });
+  if (result?.already) {
+    return { ok: true, already: true, message: 'Ya estaba marcado en la mesa' };
+  }
+  if (!result?.ok) {
+    return { ok: false, message: result?.reason === 'offline' ? 'Guardado offline' : 'No se pudo registrar' };
+  }
+  // offline also ok
+  return { ok: true, message: result.reason === 'offline' ? 'Offline · se sincroniza luego' : undefined };
+}
 
 // Modal de confirmación y estado del piloto seleccionado
 const showConfirmModal = ref(false);
@@ -444,6 +477,52 @@ function formatStartClock(dateTimeStr) {
 .highlight-timer {
   color: var(--color-primary);
   font-weight: 900;
+}
+
+.qr-mode-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 94, 0, 0.35);
+  background: linear-gradient(135deg, rgba(255, 94, 0, 0.16), rgba(255, 94, 0, 0.05));
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.qr-mode-btn .material-icons:first-child {
+  font-size: 28px;
+  color: #ff5e00;
+}
+
+.qr-mode-btn__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.qr-mode-btn__text strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.qr-mode-btn__text small {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.qr-mode-btn__chev {
+  color: var(--color-text-secondary);
+}
+
+.qr-mode-btn:active {
+  transform: scale(0.985);
 }
 
 /* Controls Card - Single Search Input */

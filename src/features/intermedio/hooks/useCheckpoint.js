@@ -270,7 +270,8 @@ export function useCheckpoint() {
   /**
    * @returns {Promise<{ ok: boolean, reason?: string, already?: boolean }>}
    */
-  async function registerPass(plateNumber) {
+  async function registerPass(plateNumber, options = {}) {
+    const silent = !!options.silent;
     const plate = parseInt(plateNumber, 10);
     const rider = riders.value.find((r) => parseInt(r.plate_number, 10) === plate);
 
@@ -278,10 +279,12 @@ export function useCheckpoint() {
       plate_number: plate,
       full_name: 'Corredor No Registrado',
     };
-    showCheckModal.value = true;
-    setTimeout(() => {
-      showCheckModal.value = false;
-    }, 2000);
+    if (!silent) {
+      showCheckModal.value = true;
+      setTimeout(() => {
+        showCheckModal.value = false;
+      }, 2000);
+    }
 
     if (rider && hasRiderPassed(rider)) {
       showMeshNotice(`#${plate} ya estaba marcado en la mesa`, 'warn');

@@ -119,6 +119,26 @@
             </div>
           </div>
 
+          <button type="button" class="qr-mode-btn" @click="qrOpen = true">
+            <span class="material-icons">qr_code_scanner</span>
+            <span class="qr-mode-btn__text">
+              <strong>QR continuo</strong>
+              <small>Escaneá · confirmás presencia · seguís sin salir</small>
+            </span>
+            <span class="material-icons qr-mode-btn__chev">chevron_right</span>
+          </button>
+
+          <ContinuousQrScanner
+            :open="qrOpen"
+            mode="confirm"
+            role-label="PARTIDA"
+            title="Asistencia por QR"
+            subtitle="Cada escaneo pide confirmación. Quedate en esta vista hasta terminar la lista."
+            confirm-label="Marcar presente"
+            :on-commit="commitQrPresence"
+            @close="qrOpen = false"
+          />
+
           <!-- Grid de asistencia -->
           <PartidaGrid
             v-model:searchQuery="searchQuery"
@@ -234,6 +254,9 @@ import { usePartida } from '../hooks/usePartida';
 import PartidaGrid from '../components/PartidaGrid.vue';
 import PartidaTrigger from '../components/PartidaTrigger.vue';
 import PartidaStopwatch from '../components/PartidaStopwatch.vue';
+import ContinuousQrScanner from '../../../components/qr/ContinuousQrScanner.vue';
+
+const qrOpen = ref(false);
 
 const {
   categories,
@@ -261,6 +284,7 @@ const {
   loadInitialData,
   loadRiders,
   toggleRiderPresence,
+  markRiderPresentFromQr,
   setRiderDNS,
   revertRiderDNS,
   startLaunchCountdown,
@@ -270,6 +294,10 @@ const {
   onRemotePresenceUpdated,
   stopStopwatch,
 } = usePartida();
+
+async function commitQrPresence(rider) {
+  return markRiderPresentFromQr(rider);
+}
 
 /** Duración congelada al cerrar (no debe seguir corriendo) */
 const frozenDuration = ref('');
@@ -763,6 +791,52 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
   text-align: center;
   padding: 12px;
+}
+
+.qr-mode-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 94, 0, 0.35);
+  background: linear-gradient(135deg, rgba(255, 94, 0, 0.16), rgba(255, 94, 0, 0.05));
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.qr-mode-btn .material-icons:first-child {
+  font-size: 28px;
+  color: #ff5e00;
+}
+
+.qr-mode-btn__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.qr-mode-btn__text strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.qr-mode-btn__text small {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.qr-mode-btn__chev {
+  color: var(--color-text-secondary);
+}
+
+.qr-mode-btn:active {
+  transform: scale(0.985);
 }
 
 /* Paso 2: Pase de Lista */

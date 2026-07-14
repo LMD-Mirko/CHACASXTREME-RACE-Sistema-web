@@ -97,6 +97,41 @@ export function useMeta() {
     }
   }
 
+  /** Meta QR: congela tiempo + asigna placa en un solo gesto (tras confirmar). */
+  async function registerFinishFromQr(rider) {
+    if (!activeCompetition.value) {
+      return { ok: false, message: 'No hay competencia activa' };
+    }
+    if (!rider?.plate_number) {
+      return { ok: false, message: 'Sin placa' };
+    }
+
+    const plate = parseInt(rider.plate_number, 10);
+    const already = riders.value.find((r) => parseInt(r.plate_number, 10) === plate);
+    if (already && String(already.race_status || '').toLowerCase() === 'llego') {
+      return { ok: true, already: true, message: 'Ya había llegado' };
+    }
+
+    const timeStr = formatDeviceRaceTime();
+    try {
+      const createdItem = await freezeTime({
+        competition_id: activeCompetition.value.id,
+        blind_timestamp: timeStr,
+      });
+      await assignPlate(createdItem.id, plate);
+      finishTimeQueue.value = finishTimeQueue.value.filter((q) => q.id !== createdItem.id);
+      const ridersList = await getRidersByCategory('');
+      riders.value = ridersList || [];
+      errorMessage.value = '';
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err.response?.data?.message || err.friendlyMessage || 'No se pudo registrar llegada',
+      };
+    }
+  }
+
   async function annulBlindTime(queueId) {
     try {
       await annulTime(queueId);
@@ -136,6 +171,6 @@ export function useMeta() {
   return {
     activeCompetition, finishTimeQueue, riders, isLoading, errorMessage,
     loadInitialData, refreshQueue, triggerBlindTime, addQueueItemLocally,
-    assignBlindTime, annulBlindTime, purgeQueue, handleRiderFinishedEvent
+    assignBlindTime, registerFinishFromQr, annulBlindTime, purgeQueue, handleRiderFinishedEvent
   };
 }

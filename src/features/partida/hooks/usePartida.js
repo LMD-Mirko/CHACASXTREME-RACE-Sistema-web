@@ -508,6 +508,34 @@ export function usePartida() {
     await loadRiders();
   }
 
+  async function markRiderPresentFromQr(rider) {
+    if (!rider?.id) return { ok: false, message: 'Rider inválido' };
+    if (presentRiderIds.value.has(rider.id)) {
+      return { ok: true, already: true, message: 'Ya estaba presente' };
+    }
+
+    const next = new Set(presentRiderIds.value);
+    next.add(rider.id);
+    presentRiderIds.value = next;
+    lastCheckedRider.value = rider;
+
+    try {
+      const state = await updateRollCallPresence({
+        category_id: selectedCategoryId.value,
+        phase: selectedPhase.value,
+        rider_id: rider.id,
+        present: true,
+      });
+      applyPresentIds(state.present_rider_ids);
+      return { ok: true };
+    } catch (error) {
+      const revert = new Set(presentRiderIds.value);
+      revert.delete(rider.id);
+      presentRiderIds.value = revert;
+      return { ok: false, message: error.friendlyMessage || 'No se pudo marcar presente' };
+    }
+  }
+
   watch([selectedCategoryId, selectedPhase], () => loadRiders());
 
   onBeforeUnmount(() => {
@@ -523,7 +551,7 @@ export function usePartida() {
     isIdle, isCounting, isActive, isFinalPhase,
     activeRiders, dnsRiders, totalRidersToStart, totalCategoriesToStart,
     activeCategoryLabel, arrivedRidersCount, isMangaCompleted,
-    loadInitialData, loadRiders, toggleRiderPresence, setRiderDNS, revertRiderDNS,
+    loadInitialData, loadRiders, toggleRiderPresence, markRiderPresentFromQr, setRiderDNS, revertRiderDNS,
     startRollCall, joinRemoteRollCall, onRemotePresenceUpdated,
     startLaunchCountdown, triggerLaunch, panicReset, confirmMangaClosure,
     closeDeparture, stopStopwatch,

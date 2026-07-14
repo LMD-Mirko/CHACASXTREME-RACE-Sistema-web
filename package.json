@@ -13,6 +13,7 @@
   "dependencies": {
     "@vueuse/core": "^14.3.0",
     "axios": "^1.18.1",
+    "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "laravel-echo": "^2.3.7",
     "pusher-js": "^8.5.0",
