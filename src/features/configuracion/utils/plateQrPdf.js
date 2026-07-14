@@ -1,87 +1,101 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
-/** Stickers 40×40 mm, A4, máximos por hoja (5×7 = 35). */
+/** Stickers 40×40 mm con gutters para corte limpio. */
 export const STICKER_MM = 40;
+export const GAP_MM = 3.5;
 export const PAGE = { w: 210, h: 297 };
-export const GRID = { cols: 5, rows: 7 }; // 35 por hoja
+/** 4×6 = 24 por hoja (más aire, más fácil de cortar). */
+export const GRID = { cols: 4, rows: 6 };
 
 const ORANGE = '#FF5E00';
-const BLACK = '#0A0A0A';
-const WHITE = '#FFFFFF';
-const GOLD = '#F5C518';
+const ORANGE_SOFT = '#FF7A33';
+const BLACK = '#080808';
+const CHARCOAL = '#121212';
+const WHITE = '#FAFAFA';
+const MUTED = '#A8A29E';
+const GOLD = '#E8C47C';
 
 /**
- * Dibuja un sticker estilo carrera en canvas (alta resolución).
- * @returns {HTMLCanvasElement}
+ * Sticker premium 40×40 mm (canvas alta res).
  */
 export async function renderStickerCanvas(rider, opts = {}) {
-  const pxPerMm = opts.pxPerMm || 12; // ~300dpi-ish for print sharpness
+  const pxPerMm = opts.pxPerMm || 14;
   const S = Math.round(STICKER_MM * pxPerMm);
   const canvas = document.createElement('canvas');
   canvas.width = S;
   canvas.height = S;
   const ctx = canvas.getContext('2d');
 
-  // Fondo negro
-  ctx.fillStyle = BLACK;
+  // Fondo charcoal con leve viñeta
+  const bg = ctx.createRadialGradient(S * 0.5, S * 0.35, S * 0.1, S * 0.5, S * 0.55, S * 0.85);
+  bg.addColorStop(0, '#161616');
+  bg.addColorStop(1, BLACK);
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, S, S);
 
-  // Marco naranja exterior
-  const border = Math.max(2, Math.round(S * 0.028));
-  ctx.strokeStyle = ORANGE;
-  ctx.lineWidth = border;
-  ctx.strokeRect(border / 2, border / 2, S - border, S - border);
-
-  // Esquinas técnicas
-  const corner = Math.round(S * 0.09);
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = Math.max(1.5, border * 0.7);
-  // TL
-  ctx.beginPath();
-  ctx.moveTo(border * 2, border * 2 + corner);
-  ctx.lineTo(border * 2, border * 2);
-  ctx.lineTo(border * 2 + corner, border * 2);
-  ctx.stroke();
-  // TR
-  ctx.beginPath();
-  ctx.moveTo(S - border * 2 - corner, border * 2);
-  ctx.lineTo(S - border * 2, border * 2);
-  ctx.lineTo(S - border * 2, border * 2 + corner);
-  ctx.stroke();
-  // BL
-  ctx.beginPath();
-  ctx.moveTo(border * 2, S - border * 2 - corner);
-  ctx.lineTo(border * 2, S - border * 2);
-  ctx.lineTo(border * 2 + corner, S - border * 2);
-  ctx.stroke();
-  // BR
-  ctx.beginPath();
-  ctx.moveTo(S - border * 2 - corner, S - border * 2);
-  ctx.lineTo(S - border * 2, S - border * 2);
-  ctx.lineTo(S - border * 2, S - border * 2 - corner);
+  // Marco exterior fino
+  const inset = Math.max(2, Math.round(S * 0.035));
+  ctx.strokeStyle = 'rgba(255,94,0,0.55)';
+  ctx.lineWidth = Math.max(1.25, S * 0.012);
+  roundRectPath(ctx, inset, inset, S - inset * 2, S - inset * 2, Math.round(S * 0.045));
   ctx.stroke();
 
-  // Header band
-  const headerH = Math.round(S * 0.13);
-  ctx.fillStyle = ORANGE;
-  ctx.fillRect(border, border, S - border * 2, headerH);
-  ctx.fillStyle = BLACK;
-  ctx.font = `900 ${Math.round(S * 0.045)}px "Space Grotesk", "Outfit", Impact, sans-serif`;
+  // Línea interior hairline
+  const inset2 = inset + Math.round(S * 0.02);
+  ctx.strokeStyle = 'rgba(232,196,124,0.28)';
+  ctx.lineWidth = Math.max(0.8, S * 0.006);
+  roundRectPath(ctx, inset2, inset2, S - inset2 * 2, S - inset2 * 2, Math.round(S * 0.035));
+  ctx.stroke();
+
+  // Esquinas técnicas premium (cortas)
+  drawCornerMarks(ctx, inset2, S, Math.round(S * 0.07), GOLD);
+
+  // Header tipográfico (sin barra naranja gruesa)
+  const headerY = inset2 + Math.round(S * 0.055);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('CHACAS XTREME RACE', S / 2, border + headerH / 2);
+  ctx.fillStyle = ORANGE;
+  ctx.font = `800 ${Math.round(S * 0.042)}px "Space Grotesk", "Outfit", sans-serif`;
+  ctx.letterSpacing = `${S * 0.004}px`;
+  ctx.fillText('CHACAS XTREME', S / 2, headerY);
 
-  // QR area
-  const qrTop = border + headerH + Math.round(S * 0.02);
-  const qrBottomPad = Math.round(S * 0.12);
-  const qrSize = S - border * 2 - (qrTop - border) - qrBottomPad;
+  ctx.fillStyle = MUTED;
+  ctx.font = `600 ${Math.round(S * 0.028)}px "Outfit", sans-serif`;
+  ctx.fillText('RACE  ·  4ª EDICIÓN', S / 2, headerY + Math.round(S * 0.045));
+
+  // Acento línea bajo encabezado
+  const lineY = headerY + Math.round(S * 0.07);
+  const lineW = Math.round(S * 0.28);
+  ctx.strokeStyle = ORANGE;
+  ctx.lineWidth = Math.max(1.2, S * 0.008);
+  ctx.beginPath();
+  ctx.moveTo(S / 2 - lineW / 2, lineY);
+  ctx.lineTo(S / 2 + lineW / 2, lineY);
+  ctx.stroke();
+  // punto centro
+  ctx.fillStyle = GOLD;
+  ctx.beginPath();
+  ctx.arc(S / 2, lineY, Math.max(1.5, S * 0.01), 0, Math.PI * 2);
+  ctx.fill();
+
+  // Zona QR
+  const qrTop = lineY + Math.round(S * 0.035);
+  const footerReserve = Math.round(S * 0.13);
+  const qrSize = Math.min(
+    S - inset2 * 2 - Math.round(S * 0.04),
+    S - qrTop - footerReserve - inset2,
+  );
   const qrX = Math.round((S - qrSize) / 2);
   const qrY = qrTop;
 
-  // Fondo QR blanco suave
+  // Placa blanca del QR con sombra suave
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  roundRectPath(ctx, qrX + 2, qrY + 3, qrSize, qrSize, Math.round(S * 0.03));
+  ctx.fill();
+
   ctx.fillStyle = WHITE;
-  roundRect(ctx, qrX, qrY, qrSize, qrSize, Math.round(S * 0.02));
+  roundRectPath(ctx, qrX, qrY, qrSize, qrSize, Math.round(S * 0.03));
   ctx.fill();
 
   const payload = rider.payload || rider.url;
@@ -89,64 +103,80 @@ export async function renderStickerCanvas(rider, opts = {}) {
     errorCorrectionLevel: 'H',
     margin: 1,
     width: qrSize,
-    color: { dark: BLACK, light: WHITE },
+    color: { dark: CHARCOAL, light: WHITE },
   });
-
   await drawImage(ctx, qrDataUrl, qrX, qrY, qrSize, qrSize);
 
-  // Centro: badge con número de placa (encima del QR)
+  // Badge central de placa (premium: disco blanco + anillo naranja)
   const plate = String(rider.plate_number ?? '').padStart(2, '0');
-  const badge = Math.round(qrSize * 0.36);
-  const bx = qrX + (qrSize - badge) / 2;
-  const by = qrY + (qrSize - badge) / 2;
+  const badge = Math.round(qrSize * 0.34);
+  const cx = S / 2;
+  const cy = qrY + qrSize / 2;
 
-  // Sombra
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath();
-  ctx.arc(S / 2 + 2, qrY + qrSize / 2 + 2, badge / 2, 0, Math.PI * 2);
+  ctx.arc(cx + 1.5, cy + 2, badge / 2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Disco naranja
-  const grd = ctx.createRadialGradient(S / 2, qrY + qrSize / 2, 2, S / 2, qrY + qrSize / 2, badge / 2);
-  grd.addColorStop(0, '#FF8A3D');
-  grd.addColorStop(1, ORANGE);
-  ctx.fillStyle = grd;
+  ctx.fillStyle = WHITE;
   ctx.beginPath();
-  ctx.arc(S / 2, qrY + qrSize / 2, badge / 2, 0, Math.PI * 2);
+  ctx.arc(cx, cy, badge / 2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Anillo negro
-  ctx.strokeStyle = BLACK;
-  ctx.lineWidth = Math.max(2, S * 0.012);
+  ctx.strokeStyle = ORANGE;
+  ctx.lineWidth = Math.max(2.2, S * 0.014);
   ctx.beginPath();
-  ctx.arc(S / 2, qrY + qrSize / 2, badge / 2 - ctx.lineWidth, 0, Math.PI * 2);
+  ctx.arc(cx, cy, badge / 2 - ctx.lineWidth * 0.35, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Número
-  ctx.fillStyle = WHITE;
-  ctx.font = `900 ${Math.round(badge * 0.52)}px "Space Grotesk", Impact, sans-serif`;
+  ctx.strokeStyle = 'rgba(8,8,8,0.12)';
+  ctx.lineWidth = Math.max(1, S * 0.005);
+  ctx.beginPath();
+  ctx.arc(cx, cy, badge / 2 - Math.round(S * 0.028), 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = BLACK;
+  ctx.font = `900 ${Math.round(badge * 0.5)}px "Space Grotesk", Impact, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(plate, S / 2, qrY + qrSize / 2 + 1);
+  ctx.fillText(plate, cx, cy + 1);
 
   // Footer
-  const footY = S - border - Math.round(S * 0.055);
-  ctx.fillStyle = GOLD;
-  ctx.font = `700 ${Math.round(S * 0.038)}px "Outfit", sans-serif`;
-  ctx.fillText('mankariders.xyz', S / 2, footY);
-
-  // Micro etiqueta categoría (si cabe)
+  const footBase = S - inset2 - Math.round(S * 0.055);
   if (rider.category_name) {
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = `600 ${Math.round(S * 0.028)}px "Outfit", sans-serif`;
-    const cat = String(rider.category_name).slice(0, 18).toUpperCase();
-    ctx.fillText(cat, S / 2, footY - Math.round(S * 0.045));
+    ctx.fillStyle = MUTED;
+    ctx.font = `600 ${Math.round(S * 0.026)}px "Outfit", sans-serif`;
+    const cat = String(rider.category_name).toUpperCase().slice(0, 22);
+    ctx.fillText(cat, S / 2, footBase - Math.round(S * 0.04));
   }
+
+  ctx.fillStyle = ORANGE_SOFT;
+  ctx.font = `700 ${Math.round(S * 0.036)}px "Outfit", sans-serif`;
+  ctx.fillText('mankariders.xyz', S / 2, footBase);
 
   return canvas;
 }
 
-function roundRect(ctx, x, y, w, h, r) {
+function drawCornerMarks(ctx, inset, S, len, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1.1, S * 0.007);
+  ctx.lineCap = 'square';
+  const pairs = [
+    [inset, inset + len, inset, inset, inset + len, inset],
+    [S - inset - len, inset, S - inset, inset, S - inset, inset + len],
+    [inset, S - inset - len, inset, S - inset, inset + len, S - inset],
+    [S - inset - len, S - inset, S - inset, S - inset, S - inset, S - inset - len],
+  ];
+  for (const [x1, y1, x2, y2, x3, y3] of pairs) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.stroke();
+  }
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
@@ -170,9 +200,7 @@ function drawImage(ctx, src, x, y, w, h) {
 }
 
 /**
- * Genera PDF A4 con stickers apilados 5×7 (40 mm exactos).
- * @param {Array} riders
- * @param {{ competitionName?: string, onProgress?: (n:number, total:number) => void }} [options]
+ * PDF A4 prolijo: stickers 40 mm con separación GAP_MM y marcas de corte.
  */
 export async function buildPlateQrPdf(riders, options = {}) {
   const list = Array.isArray(riders) ? riders : [];
@@ -181,8 +209,11 @@ export async function buildPlateQrPdf(riders, options = {}) {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const { cols, rows } = GRID;
   const perPage = cols * rows;
-  const marginX = (PAGE.w - cols * STICKER_MM) / 2;
-  const marginY = (PAGE.h - rows * STICKER_MM) / 2;
+  const gap = GAP_MM;
+  const blockW = cols * STICKER_MM + (cols - 1) * gap;
+  const blockH = rows * STICKER_MM + (rows - 1) * gap;
+  const marginX = (PAGE.w - blockW) / 2;
+  const marginY = (PAGE.h - blockH) / 2;
 
   for (let i = 0; i < list.length; i++) {
     if (i > 0 && i % perPage === 0) pdf.addPage();
@@ -190,31 +221,31 @@ export async function buildPlateQrPdf(riders, options = {}) {
     const local = i % perPage;
     const col = local % cols;
     const row = Math.floor(local / cols);
-    const x = marginX + col * STICKER_MM;
-    const y = marginY + row * STICKER_MM;
+    const x = marginX + col * (STICKER_MM + gap);
+    const y = marginY + row * (STICKER_MM + gap);
 
     options.onProgress?.(i + 1, list.length);
 
     const canvas = await renderStickerCanvas(list[i]);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.94);
     pdf.addImage(dataUrl, 'JPEG', x, y, STICKER_MM, STICKER_MM);
 
-    // Marcas de corte muy finas en esquinas del sticker
-    pdf.setDrawColor(180);
-    pdf.setLineWidth(0.05);
-    const tick = 1.2;
-    // top-left
-    pdf.line(x, y, x + tick, y);
-    pdf.line(x, y, x, y + tick);
-    // top-right
-    pdf.line(x + STICKER_MM - tick, y, x + STICKER_MM, y);
-    pdf.line(x + STICKER_MM, y, x + STICKER_MM, y + tick);
-    // bottom-left
-    pdf.line(x, y + STICKER_MM, x + tick, y + STICKER_MM);
-    pdf.line(x, y + STICKER_MM - tick, x, y + STICKER_MM);
-    // bottom-right
-    pdf.line(x + STICKER_MM - tick, y + STICKER_MM, x + STICKER_MM, y + STICKER_MM);
-    pdf.line(x + STICKER_MM, y + STICKER_MM - tick, x + STICKER_MM, y + STICKER_MM);
+    // Marcas de corte en el gutter (no encima del diseño)
+    drawCutMarks(pdf, x, y, STICKER_MM, gap);
+  }
+
+  // Pie de página de imprenta (muy discreto, fuera de stickers)
+  const pages = Math.ceil(list.length / perPage);
+  for (let p = 1; p <= pages; p++) {
+    pdf.setPage(p);
+    pdf.setFontSize(7);
+    pdf.setTextColor(150);
+    pdf.text(
+      `Chacas Xtreme Race · Stickers 40×40 mm · Sep. ${GAP_MM} mm · Hoja ${p}/${pages}`,
+      PAGE.w / 2,
+      PAGE.h - 6,
+      { align: 'center' },
+    );
   }
 
   const name = (options.competitionName || 'chacas-xtreme')
@@ -223,5 +254,29 @@ export async function buildPlateQrPdf(riders, options = {}) {
     .replace(/^-|-$/g, '');
   const filename = `placas-qr-${name}-${list.length}u.pdf`;
   pdf.save(filename);
-  return { filename, count: list.length, pages: Math.ceil(list.length / perPage) };
+  return { filename, count: list.length, pages };
+}
+
+function drawCutMarks(pdf, x, y, size, gap) {
+  const tick = Math.min(1.8, gap * 0.45);
+  if (tick < 0.6) return;
+
+  pdf.setDrawColor(160);
+  pdf.setLineWidth(0.12);
+
+  const marks = [
+    // top edge mid-gutters towards outside
+    [x, y, x - Math.min(tick, gap), y],
+    [x + size, y, x + size + Math.min(tick, gap), y],
+    [x, y + size, x - Math.min(tick, gap), y + size],
+    [x + size, y + size, x + size + Math.min(tick, gap), y + size],
+    [x, y, x, y - Math.min(tick, gap)],
+    [x + size, y, x + size, y - Math.min(tick, gap)],
+    [x, y + size, x, y + size + Math.min(tick, gap)],
+    [x + size, y + size, x + size, y + size + Math.min(tick, gap)],
+  ];
+
+  for (const [x1, y1, x2, y2] of marks) {
+    pdf.line(x1, y1, x2, y2);
+  }
 }

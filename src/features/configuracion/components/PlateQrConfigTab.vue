@@ -4,8 +4,9 @@
       <div>
         <h2>Placas QR 4×4 cm</h2>
         <p>
-          Genera un PDF A4 con stickers de <strong>40×40 mm</strong> apilados (5×7 = 35 por hoja)
-          para imprimir en vinilo. QR firmado + número de placa al centro.
+          Genera un PDF A4 premium con stickers de <strong>40×40 mm</strong>,
+          separados <strong>3.5 mm</strong> (4×6 = 24 por hoja) para cortar fácil.
+          Diseño dark + acentos naranja/oro.
         </p>
       </div>
       <AppButton variant="secondary" :disabled="loading" @click="load">
