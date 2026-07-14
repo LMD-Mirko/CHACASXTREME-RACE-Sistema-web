@@ -3,12 +3,15 @@
     <header class="media-head">
       <div>
         <h2>Auspiciadores</h2>
-        <p>Sube logos y elige marco (circular / rectangular) y tamaño para los carruseles de mankariders.xyz.</p>
+        <p>
+          Logos para mankariders.xyz. Circular recorta esquinas del PNG; Cuadrado/Rectangular
+          mantienen el logo completo.
+        </p>
       </div>
-      <button type="button" class="btn-primary" @click="openCreate">
+      <AppButton @click="openCreate">
         <span class="material-icons">add</span>
         Nuevo
-      </button>
+      </AppButton>
     </header>
 
     <p v-if="toast" class="toast">{{ toast }}</p>
@@ -17,7 +20,10 @@
 
     <div v-else class="cards">
       <article v-for="row in rows" :key="row.id" class="card">
-        <div class="preview" :class="[`frame-${row.frame_shape || 'auto'}`, `size-${row.display_size || 'md'}`]">
+        <div
+          class="preview"
+          :class="[`frame-${row.frame_shape || 'square'}`, `size-${row.display_size || 'md'}`]"
+        >
           <img v-if="row.logo_url" :src="row.logo_url" :alt="row.company_name" />
           <span v-else class="material-icons">image</span>
         </div>
@@ -30,62 +36,118 @@
           </p>
         </div>
         <div class="actions">
-          <button type="button" class="btn-ghost" @click="openEdit(row)">Editar</button>
-          <button type="button" class="btn-danger" @click="remove(row)">Eliminar</button>
+          <AppButton variant="secondary" @click="openEdit(row)">Editar</AppButton>
+          <AppButton variant="danger" @click="remove(row)">Eliminar</AppButton>
         </div>
       </article>
       <p v-if="!rows.length" class="muted">Aún no hay auspiciadores. Crea el primero.</p>
     </div>
 
-    <div v-if="modalOpen" class="backdrop" @click.self="modalOpen = false">
-      <form class="modal" @submit.prevent="save">
-        <h3>{{ editing ? 'Editar auspiciador' : 'Nuevo auspiciador' }}</h3>
+    <AppModal
+      :is-open="modalOpen"
+      :title="editing ? 'Editar auspiciador' : 'Nuevo auspiciador'"
+      max-width="560px"
+      allow-overflow
+      @close="modalOpen = false"
+    >
+      <form id="sponsor-form" class="sponsor-form" @submit.prevent="save">
+        <div class="form-group">
+          <label for="company_name">Nombre *</label>
+          <AppInput
+            id="company_name"
+            v-model="form.company_name"
+            placeholder="Ej: KISHI HOUSE"
+            required
+          />
+        </div>
 
-        <label>
-          <span>Nombre</span>
-          <input v-model.trim="form.company_name" required minlength="2" />
-        </label>
+        <div class="logo-upload">
+          <span class="field-label">Logo {{ editing ? '(opcional al editar)' : '*' }}</span>
+          <div class="logo-row">
+            <button
+              type="button"
+              class="logo-preview-btn"
+              :class="[`frame-${form.frame_shape}`, `size-${form.display_size}`]"
+              @click="triggerFileInput"
+            >
+              <img
+                v-if="displayPreview"
+                :src="displayPreview"
+                alt="Vista previa del logo"
+                class="logo-preview-img"
+              />
+              <div v-else class="logo-placeholder">
+                <span class="material-icons">add_photo_alternate</span>
+                <span>Logo</span>
+              </div>
+            </button>
 
-        <label>
-          <span>Logo {{ editing ? '(opcional al editar)' : '' }}</span>
-          <input type="file" accept="image/*" @change="onFile" :required="!editing" />
-        </label>
-
-        <div v-if="previewUrl || editing?.logo_url" class="form-preview" :class="[`frame-${form.frame_shape}`, `size-${form.display_size}`]">
-          <img :src="previewUrl || editing?.logo_url" alt="Vista previa" />
+            <div class="logo-actions">
+              <AppButton type="button" variant="secondary" @click="triggerFileInput">
+                <span class="material-icons">upload_file</span>
+                {{ logoFileName || 'Seleccionar archivo' }}
+              </AppButton>
+              <p class="help">JPG, PNG, WEBP o SVG. Máx. 5MB.</p>
+            </div>
+          </div>
+          <input
+            ref="fileInput"
+            type="file"
+            class="hidden-file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+            @change="onFile"
+          />
         </div>
 
         <div class="grid2">
-          <label>
-            <span>Marco</span>
-            <select v-model="form.frame_shape">
-              <option value="auto">Automático</option>
-              <option value="circle">Circular</option>
-              <option value="rectangle">Rectangular (horizontal)</option>
-              <option value="square">Cuadrado</option>
-              <option value="tall">Rectangular (vertical)</option>
-            </select>
-          </label>
-          <label>
-            <span>Tamaño</span>
-            <select v-model="form.display_size">
-              <option value="sm">Pequeño</option>
-              <option value="md">Mediano</option>
-              <option value="lg">Grande</option>
-            </select>
-          </label>
+          <div class="form-group">
+            <label>Marco</label>
+            <AppSelect
+              v-model="form.frame_shape"
+              :options="frameOptions"
+              placeholder="Elige marco"
+              icon="crop_free"
+            />
+          </div>
+          <div class="form-group">
+            <label>Tamaño</label>
+            <AppSelect
+              v-model="form.display_size"
+              :options="sizeOptions"
+              placeholder="Elige tamaño"
+              icon="photo_size_select_large"
+            />
+          </div>
         </div>
 
-        <label>
-          <span>Orden en carrusel</span>
-          <input v-model.number="form.sort_order" type="number" min="0" />
-        </label>
+        <div class="form-group">
+          <label for="sort_order">Orden en carrusel</label>
+          <AppInput
+            id="sort_order"
+            v-model="form.sort_order"
+            type="number"
+            min="0"
+            placeholder="0"
+          />
+        </div>
 
         <div class="grid2">
-          <label><span>Instagram</span><input v-model.trim="form.instagram_url" type="url" placeholder="https://" /></label>
-          <label><span>Facebook</span><input v-model.trim="form.facebook_url" type="url" placeholder="https://" /></label>
-          <label><span>TikTok</span><input v-model.trim="form.tiktok_url" type="url" placeholder="https://" /></label>
-          <label><span>Web</span><input v-model.trim="form.website_url" type="url" placeholder="https://" /></label>
+          <div class="form-group">
+            <label for="instagram_url">Instagram</label>
+            <AppInput id="instagram_url" v-model="form.instagram_url" type="url" placeholder="https://instagram.com/…" />
+          </div>
+          <div class="form-group">
+            <label for="facebook_url">Facebook</label>
+            <AppInput id="facebook_url" v-model="form.facebook_url" type="url" placeholder="https://facebook.com/…" />
+          </div>
+          <div class="form-group">
+            <label for="tiktok_url">TikTok</label>
+            <AppInput id="tiktok_url" v-model="form.tiktok_url" type="url" placeholder="https://tiktok.com/@…" />
+          </div>
+          <div class="form-group">
+            <label for="website_url">Web</label>
+            <AppInput id="website_url" v-model="form.website_url" type="url" placeholder="https://…" />
+          </div>
         </div>
 
         <label class="check">
@@ -94,17 +156,18 @@
         </label>
 
         <p v-if="modalError" class="error">{{ modalError }}</p>
-        <div class="modal-actions">
-          <button type="button" class="btn-ghost" @click="modalOpen = false">Cancelar</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
-        </div>
       </form>
-    </div>
+
+      <template #footer>
+        <AppButton variant="secondary" @click="modalOpen = false">Cancelar</AppButton>
+        <AppButton type="submit" form="sponsor-form" :loading="saving">Guardar</AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   listSponsorsAdmin,
   createSponsor,
@@ -122,10 +185,25 @@ const modalError = ref('');
 const editing = ref(null);
 const logoFile = ref(null);
 const previewUrl = ref('');
+const fileInput = ref(null);
+
+const frameOptions = [
+  { value: 'auto', label: 'Automático' },
+  { value: 'circle', label: 'Circular' },
+  { value: 'rectangle', label: 'Rectangular (horizontal)' },
+  { value: 'square', label: 'Cuadrado' },
+  { value: 'tall', label: 'Rectangular (vertical)' },
+];
+
+const sizeOptions = [
+  { value: 'sm', label: 'Pequeño' },
+  { value: 'md', label: 'Mediano' },
+  { value: 'lg', label: 'Grande' },
+];
 
 const form = reactive({
   company_name: '',
-  frame_shape: 'auto',
+  frame_shape: 'square',
   display_size: 'md',
   sort_order: 0,
   instagram_url: '',
@@ -134,6 +212,12 @@ const form = reactive({
   website_url: '',
   is_active: true,
 });
+
+const displayPreview = computed(
+  () => previewUrl.value || editing.value?.logo_url || '',
+);
+
+const logoFileName = computed(() => logoFile.value?.name || '');
 
 function frameLabel(v) {
   return ({
@@ -163,7 +247,7 @@ async function load() {
 
 function resetForm() {
   form.company_name = '';
-  form.frame_shape = 'auto';
+  form.frame_shape = 'square';
   form.display_size = 'md';
   form.sort_order = 0;
   form.instagram_url = '';
@@ -172,8 +256,10 @@ function resetForm() {
   form.website_url = '';
   form.is_active = true;
   logoFile.value = null;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
   previewUrl.value = '';
   modalError.value = '';
+  if (fileInput.value) fileInput.value.value = '';
 }
 
 function openCreate() {
@@ -186,7 +272,7 @@ function openEdit(row) {
   editing.value = row;
   resetForm();
   form.company_name = row.company_name || '';
-  form.frame_shape = row.frame_shape || 'auto';
+  form.frame_shape = row.frame_shape || 'square';
   form.display_size = row.display_size || 'md';
   form.sort_order = row.sort_order ?? 0;
   form.instagram_url = row.instagram_url || '';
@@ -195,6 +281,10 @@ function openEdit(row) {
   form.website_url = row.website_url || '';
   form.is_active = Boolean(row.is_active);
   modalOpen.value = true;
+}
+
+function triggerFileInput() {
+  fileInput.value?.click();
 }
 
 function onFile(e) {
@@ -208,11 +298,12 @@ async function save() {
   saving.value = true;
   modalError.value = '';
   try {
+    if (!form.company_name?.trim()) throw new Error('Ingresa el nombre.');
     const payload = {
-      company_name: form.company_name,
+      company_name: form.company_name.trim(),
       frame_shape: form.frame_shape,
       display_size: form.display_size,
-      sort_order: form.sort_order || 0,
+      sort_order: Number(form.sort_order) || 0,
       instagram_url: form.instagram_url || null,
       facebook_url: form.facebook_url || null,
       tiktok_url: form.tiktok_url || null,
@@ -250,79 +341,237 @@ onMounted(load);
 </script>
 
 <style scoped>
-.media-tab { display: flex; flex-direction: column; gap: 1rem; }
-.media-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
-.media-head h2 { margin: 0 0 0.25rem; font-size: 1.15rem; color: var(--color-text-primary); }
-.media-head p { margin: 0; color: var(--color-text-secondary); font-size: 0.88rem; max-width: 40rem; }
-.cards { display: grid; gap: 0.75rem; }
+.media-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.media-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.media-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+}
+
+.media-head p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  max-width: 40rem;
+  line-height: 1.4;
+}
+
+.cards {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .card {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.85rem;
   align-items: center;
-  padding: 0.75rem;
+  padding: 0.85rem 1rem;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--color-surface);
 }
-.preview, .form-preview {
-  display: grid; place-items: center;
+
+.preview {
+  display: grid;
+  place-items: center;
   background: var(--color-input-bg);
   border: 1px solid var(--color-border);
   overflow: hidden;
+  flex-shrink: 0;
 }
-.preview img, .form-preview img { width: 100%; height: 100%; object-fit: contain; }
-.preview.frame-circle, .form-preview.frame-circle { border-radius: 50%; }
-.preview.frame-rectangle, .form-preview.frame-rectangle,
-.preview.frame-auto, .form-preview.frame-auto { border-radius: 14px; }
-.preview.frame-square, .form-preview.frame-square { border-radius: 12px; }
-.preview.frame-tall, .form-preview.frame-tall { border-radius: 14px; }
+
+.preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.preview.frame-circle img {
+  object-fit: cover;
+  transform: scale(1.06);
+}
+
+.preview.frame-circle { border-radius: 50%; }
+.preview.frame-rectangle,
+.preview.frame-auto { border-radius: 14px; }
+.preview.frame-square { border-radius: 12px; }
+.preview.frame-tall { border-radius: 14px; }
+
 .preview.size-sm { width: 56px; height: 56px; }
 .preview.size-md { width: 72px; height: 72px; }
 .preview.size-lg { width: 96px; height: 96px; }
-.preview.frame-rectangle.size-sm, .form-preview.frame-rectangle.size-sm { width: 88px; height: 48px; }
-.preview.frame-rectangle.size-md, .form-preview.frame-rectangle.size-md { width: 120px; height: 64px; }
-.preview.frame-rectangle.size-lg, .form-preview.frame-rectangle.size-lg { width: 150px; height: 78px; }
+.preview.frame-rectangle.size-sm { width: 88px; height: 48px; }
+.preview.frame-rectangle.size-md { width: 120px; height: 64px; }
+.preview.frame-rectangle.size-lg { width: 150px; height: 78px; }
 .preview.frame-tall.size-sm { width: 48px; height: 72px; }
 .preview.frame-tall.size-md { width: 56px; height: 88px; }
 .preview.frame-tall.size-lg { width: 64px; height: 108px; }
-.form-preview { margin: 0.25rem 0 0.5rem; width: 120px; height: 80px; }
-.meta h3 { margin: 0 0 0.2rem; font-size: 0.98rem; color: var(--color-text-primary); }
-.meta p { margin: 0; font-size: 0.78rem; color: var(--color-text-secondary); }
+
+.meta h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.98rem;
+  color: var(--color-text-primary);
+}
+
+.meta p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
 .on { color: #059669; font-weight: 700; }
 .off { color: #b45309; font-weight: 700; }
-.actions { display: flex; gap: 0.4rem; }
-.btn-primary, .btn-ghost, .btn-danger {
-  border-radius: 10px; border: 1px solid var(--color-border); padding: 0.45rem 0.75rem;
-  font-weight: 700; cursor: pointer; font-size: 0.8rem;
+
+.actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
-.btn-primary { background: #ff5e00; color: #fff; border-color: #ff5e00; display: inline-flex; gap: 0.25rem; align-items: center; }
-.btn-ghost { background: var(--color-input-bg); color: var(--color-text-primary); }
-.btn-danger { background: transparent; color: #dc2626; border-color: rgba(220,38,38,.35); }
-.backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50;
-  display: grid; place-items: center; padding: 1rem;
+
+.sponsor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.modal {
-  width: min(560px, 100%); max-height: 90vh; overflow: auto;
-  background: var(--color-surface); color: var(--color-text-primary);
-  border: 1px solid var(--color-border); border-radius: 16px; padding: 1.1rem;
-  display: flex; flex-direction: column; gap: 0.7rem;
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.modal h3 { margin: 0; }
-label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; }
-input, select {
-  border: 1px solid var(--color-border); border-radius: 10px; padding: 0.55rem 0.7rem;
-  background: var(--color-input-bg); color: var(--color-text-primary);
+
+.form-group > label,
+.field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-.check { flex-direction: row; align-items: center; gap: 0.5rem; font-weight: 600; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.logo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-preview-btn {
+  border: 2px dashed var(--color-border);
+  background: var(--color-input-bg);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.logo-preview-btn:hover {
+  border-color: var(--color-primary);
+  background: rgba(255, 94, 0, 0.04);
+}
+
+.logo-preview-btn.frame-circle { border-radius: 50%; }
+.logo-preview-btn.frame-rectangle,
+.logo-preview-btn.frame-auto { border-radius: 14px; }
+.logo-preview-btn.frame-square { border-radius: 12px; }
+.logo-preview-btn.frame-tall { border-radius: 14px; }
+
+.logo-preview-btn.size-sm { width: 72px; height: 72px; }
+.logo-preview-btn.size-md { width: 96px; height: 96px; }
+.logo-preview-btn.size-lg { width: 112px; height: 112px; }
+.logo-preview-btn.frame-rectangle.size-sm { width: 110px; height: 60px; }
+.logo-preview-btn.frame-rectangle.size-md { width: 140px; height: 74px; }
+.logo-preview-btn.frame-rectangle.size-lg { width: 168px; height: 88px; }
+.logo-preview-btn.frame-tall.size-sm { width: 60px; height: 90px; }
+.logo-preview-btn.frame-tall.size-md { width: 70px; height: 108px; }
+.logo-preview-btn.frame-tall.size-lg { width: 80px; height: 124px; }
+
+.logo-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-preview-btn.frame-circle .logo-preview-img {
+  object-fit: cover;
+  transform: scale(1.06);
+}
+
+.logo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.logo-placeholder .material-icons {
+  font-size: 22px;
+}
+
+.logo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.help {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
 .toast { color: #059669; font-weight: 700; }
-.error { color: #dc2626; font-size: 0.85rem; }
+.error { color: #dc2626; font-size: 0.85rem; margin: 0; }
 .muted { color: var(--color-text-secondary); }
+
 @media (max-width: 700px) {
   .card { grid-template-columns: 1fr; }
   .grid2 { grid-template-columns: 1fr; }
+  .logo-row { flex-direction: column; align-items: flex-start; }
 }
 </style>
