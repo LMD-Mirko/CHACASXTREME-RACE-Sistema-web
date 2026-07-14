@@ -99,17 +99,25 @@ function setCanvasRef(id, el) {
 }
 
 async function paintPreviews() {
+  if (loading.value) return;
   await nextTick();
+  // Frame extra: los canvas solo montan con loading === false
+  await new Promise((r) => requestAnimationFrame(() => r()));
+  if (loading.value) return;
   const subset = filteredRiders.value.slice(0, 12);
   for (const r of subset) {
     const host = canvasMap.get(r.id);
-    if (!host) continue;
-    const src = await renderStickerCanvas(r, { pxPerMm: 6 });
-    const ctx = host.getContext('2d');
-    host.width = src.width;
-    host.height = src.height;
-    ctx.clearRect(0, 0, host.width, host.height);
-    ctx.drawImage(src, 0, 0);
+    if (!host || !r.payload) continue;
+    try {
+      const src = await renderStickerCanvas(r, { pxPerMm: 6 });
+      const ctx = host.getContext('2d');
+      host.width = src.width;
+      host.height = src.height;
+      ctx.clearRect(0, 0, host.width, host.height);
+      ctx.drawImage(src, 0, 0);
+    } catch (e) {
+      console.warn('Preview QR falló', r.plate_number, e);
+    }
   }
 }
 
@@ -125,11 +133,11 @@ async function load() {
     const data = res.data?.data;
     competitionName.value = data?.competition?.name || '';
     riders.value = data?.riders || [];
-    await paintPreviews();
   } catch (e) {
     error.value = e.friendlyMessage || e.message || 'No se pudo cargar.';
   } finally {
     loading.value = false;
+    await paintPreviews();
   }
 }
 

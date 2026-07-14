@@ -33,19 +33,27 @@
           <input
             id="password"
             v-model="password"
-            type="password"
+            :type="showPassword ? 'text' : 'password'"
             required
             placeholder="••••••••"
-            class="manka-input"
+            class="manka-input manka-input--password"
+            autocomplete="current-password"
           />
+          <button
+            type="button"
+            class="toggle-password-btn"
+            :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            @click="showPassword = !showPassword"
+          >
+            <span class="material-icons">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+          </button>
         </div>
       </div>
 
-      <!-- Solo recordar usuario (nunca la contraseña en localStorage) -->
       <div class="options-row">
         <label class="remember-checkbox-label">
           <input type="checkbox" v-model="rememberMe" class="manka-checkbox" />
-          <span>Recordar usuario</span>
+          <span>Recordar usuario y contraseña</span>
         </label>
       </div>
 
@@ -75,13 +83,36 @@ const { login, errorMessage, isLoading } = useAuth();
 const username = ref('');
 const password = ref('');
 const rememberMe = ref(false);
+const showPassword = ref(false);
+
+const CRED_USER = 'saved_username';
+const CRED_PASS = 'saved_password_b64';
+
+function encodeCred(value) {
+  try {
+    return btoa(unescape(encodeURIComponent(value)));
+  } catch {
+    return '';
+  }
+}
+
+function decodeCred(value) {
+  try {
+    return decodeURIComponent(escape(atob(value)));
+  } catch {
+    return '';
+  }
+}
 
 onMounted(() => {
-  // Limpiar contraseñas viejas guardadas (riesgo de seguridad)
-  localStorage.removeItem('saved_password');
-  const savedUser = localStorage.getItem('saved_username');
+  const savedUser = localStorage.getItem(CRED_USER);
+  const savedPass = localStorage.getItem(CRED_PASS);
   if (savedUser) {
     username.value = savedUser;
+    rememberMe.value = true;
+  }
+  if (savedPass) {
+    password.value = decodeCred(savedPass);
     rememberMe.value = true;
   }
 });
@@ -89,13 +120,17 @@ onMounted(() => {
 const submitLogin = async () => {
   if (!username.value.trim() || !password.value.trim()) return;
 
-  const ok = await login(username.value.trim(), password.value.trim());
+  const user = username.value.trim();
+  const pass = password.value.trim();
+  const ok = await login(user, pass);
   if (ok) {
-    localStorage.removeItem('saved_password');
     if (rememberMe.value) {
-      localStorage.setItem('saved_username', username.value.trim());
+      localStorage.setItem(CRED_USER, user);
+      localStorage.setItem(CRED_PASS, encodeCred(pass));
     } else {
-      localStorage.removeItem('saved_username');
+      localStorage.removeItem(CRED_USER);
+      localStorage.removeItem(CRED_PASS);
+      localStorage.removeItem('saved_password');
     }
     const role = localStorage.getItem('user_role')?.toUpperCase();
     if (role === 'PARTIDA') {
@@ -181,9 +216,34 @@ const submitLogin = async () => {
   outline: none;
   transition: all 0.3s;
 }
+.manka-input--password {
+  padding-right: 48px;
+}
 .manka-input:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(255, 94, 0, 0.15);
+}
+.toggle-password-btn {
+  position: absolute;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+.toggle-password-btn:hover {
+  color: var(--color-primary);
+  background: rgba(255, 94, 0, 0.08);
+}
+.toggle-password-btn .material-icons {
+  font-size: 22px;
 }
 .options-row {
   display: flex;
