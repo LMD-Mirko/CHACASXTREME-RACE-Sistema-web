@@ -2,7 +2,7 @@
   <div class="configuracion-view fade-in">
     <header class="config-header">
       <h1>Configuración del Sistema</h1>
-      <p class="config-subtitle">Gestiona el personal, categorías de la carrera y el control de fase activa de competencia.</p>
+      <p class="config-subtitle">Staff, carrera, auspiciadores, galería y descarga de media de la 4ª edición.</p>
     </header>
 
     <!-- Navegación por pestañas -->
@@ -35,11 +35,17 @@ import { ref, computed } from 'vue';
 import UsersConfigTab from '../components/UsersConfigTab.vue';
 import CategoriesConfigTab from '../components/CategoriesConfigTab.vue';
 import CompetitionConfigTab from '../components/CompetitionConfigTab.vue';
+import SponsorsConfigTab from '../components/SponsorsConfigTab.vue';
+import GalleryConfigTab from '../components/GalleryConfigTab.vue';
+import Edition4MediaTab from '../components/Edition4MediaTab.vue';
 
 const tabs = [
   { id: 'users', label: 'Usuarios Staff', icon: 'manage_accounts', component: UsersConfigTab },
   { id: 'categories', label: 'Categorías', icon: 'category', component: CategoriesConfigTab },
-  { id: 'competition', label: 'Control Carrera', icon: 'settings', component: CompetitionConfigTab }
+  { id: 'competition', label: 'Control Carrera', icon: 'settings', component: CompetitionConfigTab },
+  { id: 'sponsors', label: 'Auspiciadores', icon: 'handshake', component: SponsorsConfigTab },
+  { id: 'gallery', label: 'Galería', icon: 'photo_library', component: GalleryConfigTab },
+  { id: 'edition4-media', label: 'Media Ed.4', icon: 'folder_zip', component: Edition4MediaTab },
 ];
 
 const activeTab = ref('users');
@@ -78,6 +84,7 @@ const currentTabComponent = computed(() => {
 /* Diseño de pestañas tipo cápsula (Pills) */
 .tabs-nav {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 6px;
   background: rgba(255, 94, 0, 0.04);
   border: 1px solid var(--color-border);
