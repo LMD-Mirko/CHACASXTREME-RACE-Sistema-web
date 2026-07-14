@@ -2,19 +2,19 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://24.199.82.193:8888/api/:path*"
+      "destination": "https://enzyme-blog-reliance-franklin.trycloudflare.com/api/:path*"
     },
     {
       "source": "/storage/:path*",
-      "destination": "http://24.199.82.193:8888/storage/:path*"
+      "destination": "https://enzyme-blog-reliance-franklin.trycloudflare.com/storage/:path*"
     },
     {
       "source": "/broadcasting/:path*",
-      "destination": "http://24.199.82.193:8888/broadcasting/:path*"
+      "destination": "https://enzyme-blog-reliance-franklin.trycloudflare.com/broadcasting/:path*"
     },
     {
       "source": "/(.*)",
       "destination": "/"
-  }
+    }
   ]
 }
