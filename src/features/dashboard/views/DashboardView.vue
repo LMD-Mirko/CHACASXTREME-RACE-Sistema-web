@@ -23,10 +23,10 @@
       </div>
     </Transition>
 
-    <!-- Aviso ADMIN en móvil (ya no bloquea — emergencia en carrera) -->
+    <!-- Aviso ADMIN en móvil: menú reducido a gestión -->
     <div v-if="isAdmin && isMobile && showAdminMobileHint" class="admin-mobile-hint fade-in">
-      <span class="material-icons">warning_amber</span>
-      <p>Modo Admin en móvil: úsalo solo de emergencia. Lo ideal es laptop.</p>
+      <span class="material-icons">phone_android</span>
+      <p>En el celular solo ves Competidores, Camarógrafos, Posición y Configuración. En laptop tienes el menú completo.</p>
       <button type="button" class="hint-dismiss" @click="showAdminMobileHint = false">OK</button>
     </div>
 
@@ -57,7 +57,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMediaQuery } from '@vueuse/core';
 import { useAuth } from '../../login/hooks/useAuth';
 import AppSidebar from '../components/AppSidebar.vue';
@@ -67,8 +68,12 @@ import RealTimeNotificationCenter from '../../../components/common/RealTimeNotif
 import api from '../../../core/network/axios';
 import { syncServerClock } from '../../../core/time/raceTime';
 
+const ADMIN_MOBILE_ALLOWED = ['competidores', 'camarografos', 'posicion', 'configuracion'];
+
 const isSidebarOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 1023px)');
+const route = useRoute();
+const router = useRouter();
 const { currentUser, logout } = useAuth();
 const showAdminMobileHint = ref(true);
 
@@ -81,6 +86,17 @@ let clockSyncInterval = null;
 const isAdmin = computed(() => {
   return currentUser.value?.role?.toUpperCase() === 'ADMIN';
 });
+
+watch(
+  [isMobile, isAdmin, () => route.name],
+  ([mobile, admin, routeName]) => {
+    if (!mobile || !admin || !routeName || routeName === 'dashboard') return;
+    if (!ADMIN_MOBILE_ALLOWED.includes(routeName)) {
+      router.replace('/dashboard/competidores');
+    }
+  },
+  { immediate: true },
+);
 
 async function handleLogout() {
   await logout();

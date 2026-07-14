@@ -95,6 +95,15 @@ const ROLE_ALLOWED_ROUTES = {
   META: ['meta', 'confirmacion', 'categorias-explorer', 'posicion'],
 };
 
+/** En teléfono el ADMIN solo gestiona estas vistas; en laptop ve todo. */
+const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'camarografos', 'posicion', 'configuracion'];
+const ADMIN_MOBILE_DEFAULT = '/dashboard/competidores';
+const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
+
+function isMobileViewport() {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+}
+
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('auth_token');
   const role = localStorage.getItem('user_role')?.toUpperCase();
@@ -140,8 +149,25 @@ router.beforeEach((to, from, next) => {
     return;
   }
   
-  // 3. Control de acceso por Roles (excluyendo a ADMIN)
-  if (role && role !== 'ADMIN') {
+  // 3. Control de acceso por Roles
+  if (role === 'ADMIN') {
+    if (to.path === '/dashboard' || to.path === '/dashboard/') {
+      next({ path: ADMIN_MOBILE_DEFAULT });
+      return;
+    }
+
+    // En móvil: solo competidores, camarógrafos, posición y configuración
+    if (
+      isMobileViewport()
+      && to.name
+      && to.name !== 'dashboard'
+      && !ADMIN_MOBILE_ALLOWED_ROUTES.includes(to.name)
+    ) {
+      console.log(`[Router Guard] Admin mobile blocked "${to.name}". Redirecting to ${ADMIN_MOBILE_DEFAULT}`);
+      next({ path: ADMIN_MOBILE_DEFAULT });
+      return;
+    }
+  } else if (role) {
     const defaultPath = ROLE_DEFAULT_ROUTES[role] || '/dashboard/competidores';
     
     // Si intenta ir a la raíz del dashboard

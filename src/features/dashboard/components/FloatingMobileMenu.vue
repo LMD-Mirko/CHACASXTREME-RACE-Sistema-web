@@ -104,6 +104,7 @@ const menuItems = computed(() => {
     competidores: { name: 'competidores', path: '/dashboard/competidores', icon: 'group', label: 'Corredores' },
     camarografos: { name: 'camarografos', path: '/dashboard/camarografos', icon: 'photo_camera', label: 'Cámaras' },
     posicion: { name: 'posicion', path: '/dashboard/posicion', icon: 'sports_score', label: 'Posición' },
+    configuracion: { name: 'configuracion', path: '/dashboard/configuracion', icon: 'settings', label: 'Config' },
     checkpoint: { name: 'checkpoint', path: '/dashboard/checkpoint', icon: 'location_on', label: 'Checkpoint' },
     meta: { name: 'meta', path: '/dashboard/meta', icon: 'emoji_events', label: 'Meta' },
     confirmacion: { name: 'confirmacion', path: '/dashboard/confirmacion', icon: 'assignment_turned_in', label: 'Confirmar' }
@@ -115,17 +116,21 @@ const menuItems = computed(() => {
     return [allItems.checkpoint, allItems.categorias, allItems.competidores, allItems.posicion];
   } else if (role.value === 'META') {
     return [allItems.meta, allItems.confirmacion, allItems.categorias, allItems.posicion];
+  } else if (role.value === 'ADMIN') {
+    // Solo gestión en teléfono; en laptop el sidebar muestra el menú completo
+    return [
+      allItems.competidores,
+      allItems.camarografos,
+      allItems.posicion,
+      allItems.configuracion,
+    ];
   }
-  
-  // Por defecto (si es ADMIN u otros roles no móviles, aunque ADMIN estará bloqueado)
+
   return [
-    allItems.partida,
-    allItems.checkpoint,
-    allItems.meta,
-    allItems.categorias,
     allItems.competidores,
     allItems.camarografos,
-    allItems.posicion
+    allItems.posicion,
+    allItems.configuracion,
   ];
 });
 
