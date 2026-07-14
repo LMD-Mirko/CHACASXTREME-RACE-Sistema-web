@@ -110,6 +110,16 @@
             />
           </AppTooltip>
 
+          <AppTooltip content="Enviar link Mi carrera (dossier)">
+            <AppButton
+              variant="icon-action"
+              icon="folder_shared"
+              class="btn-dossier-link"
+              @click="$emit('share-dossier', item)"
+              aria-label="Enlace Mi carrera"
+            />
+          </AppTooltip>
+
           <AppTooltip content="Eliminar piloto" align="right">
             <AppButton
               variant="icon-action"
@@ -131,6 +141,7 @@
           @view-detail="$emit('view-detail', item)"
           @assign-plate="$emit('assign-plate', item)"
           @share-profile="$emit('share-profile', item)"
+          @share-dossier="$emit('share-dossier', item)"
           @delete="$emit('delete', item)"
         />
       </template>
@@ -152,7 +163,7 @@ defineProps({
   riders: { type: Array, required: true }
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile', 'share-dossier']);
 
 const headers = [
   { key: 'photo', label: 'Foto' },

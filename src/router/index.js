@@ -54,6 +54,11 @@ const routes = [
         component: RidersView,
       },
       {
+        path: 'camarografos',
+        name: 'camarografos',
+        component: () => import('../features/camarografos/views/PhotographersView.vue'),
+      },
+      {
         path: 'posicion',
         name: 'posicion',
         component: () => import('../features/classification/views/ClassificationView.vue'),

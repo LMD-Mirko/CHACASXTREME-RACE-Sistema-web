@@ -31,6 +31,7 @@
         @view-detail="openDetailModal"
         @assign-plate="openAssignPlateModal"
         @share-profile="handleShareProfile"
+        @share-dossier="handleShareDossier"
         @delete="handleDelete"
       />
     </div>
@@ -98,6 +99,7 @@ const {
   handleRevertRetire,
   assignPlate,
   getProfileLink,
+  getDossierLink,
   removeRider,
 } = useRiders();
 
@@ -157,8 +159,8 @@ async function handleShareProfile(rider) {
   const data = await getProfileLink(rider.id);
   if (!data?.token) return;
 
-  // URL en ESTE mismo sistema (no la web pública / puerto equivocado)
-  const url = `${window.location.origin}/completar-perfil?token=${encodeURIComponent(data.token)}`;
+  // Completar ficha vive en Sistema-web (ruta pública)
+  const url = data.url || `${window.location.origin}/completar-perfil?token=${encodeURIComponent(data.token)}`;
   const waText = `Hola ${rider.full_name}! Sube tu foto rider y completa lo que falta para Chacas Xtreme Race.\n\nEntra aquí (enlace personal):\n${url}`;
   const phone = String(rider.emergency_phone || '').replace(/\D+/g, '');
   const waPhone = phone ? (phone.startsWith('51') ? phone : `51${phone}`) : '';
@@ -170,8 +172,27 @@ async function handleShareProfile(rider) {
     showShareToast(url);
   }
 
-  if (waPhone) {
+  if (data.whatsapp_url) {
+    window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
+  } else if (waPhone) {
     window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`, '_blank', 'noopener,noreferrer');
+  }
+}
+
+async function handleShareDossier(rider) {
+  const data = await getDossierLink(rider.id);
+  if (!data?.url && !data?.token) return;
+
+  const url = data.url;
+  try {
+    await navigator.clipboard.writeText(url);
+    showShareToast(`Link Mi carrera copiado: ${url}`);
+  } catch {
+    showShareToast(url);
+  }
+
+  if (data.whatsapp_url) {
+    window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
   }
 }
 

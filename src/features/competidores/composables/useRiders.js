@@ -1,5 +1,5 @@
 import { ref, reactive, watch } from 'vue';
-import { getRiders, createRider, updateRider, updateRiderStatus, retireRider, revertRetireRider, deleteRider, assignRiderPlate, issueRiderProfileLink } from '../services/riderService';
+import { getRiders, createRider, updateRider, updateRiderStatus, retireRider, revertRetireRider, deleteRider, assignRiderPlate, issueRiderProfileLink, issueRiderDossierLink } from '../services/riderService';
 import { getCategories } from '../services/categoryService';
 
 // Estado reactivo global único (Singleton) para compartir entre el Header y la Vista
@@ -137,6 +137,16 @@ export function useRiders() {
     }
   }
 
+  async function getDossierLink(riderId, regenerate = false) {
+    errorMessage.value = '';
+    try {
+      return await issueRiderDossierLink(riderId, { regenerate });
+    } catch (error) {
+      errorMessage.value = error.friendlyMessage || 'Error al generar el enlace de Mi carrera.';
+      return null;
+    }
+  }
+
   // Elimina un piloto del sistema
   async function removeRider(riderId) {
     isLoading.value = true;
@@ -175,6 +185,7 @@ export function useRiders() {
     handleRevertRetire,
     assignPlate,
     getProfileLink,
+    getDossierLink,
     removeRider,
   };
 }

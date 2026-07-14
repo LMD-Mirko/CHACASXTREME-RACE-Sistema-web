@@ -61,6 +61,7 @@ const SECTION_NAMES = {
   checkpoint:   'Checkpoint de Ruta',
   meta:         'Meta y Cronometraje',
   competidores: 'Competidores',
+  camarografos: 'Camarógrafos',
   dashboard:    'Dashboard',
 };
 

@@ -102,6 +102,7 @@ const menuItems = computed(() => {
     partida: { name: 'partida', path: '/dashboard/partida', icon: 'flag', label: 'Partida' },
     categorias: { name: 'categorias', path: '/dashboard/categorias-explorer', icon: 'grid_view', label: 'Categorías' },
     competidores: { name: 'competidores', path: '/dashboard/competidores', icon: 'group', label: 'Corredores' },
+    camarografos: { name: 'camarografos', path: '/dashboard/camarografos', icon: 'photo_camera', label: 'Cámaras' },
     posicion: { name: 'posicion', path: '/dashboard/posicion', icon: 'sports_score', label: 'Posición' },
     checkpoint: { name: 'checkpoint', path: '/dashboard/checkpoint', icon: 'location_on', label: 'Checkpoint' },
     meta: { name: 'meta', path: '/dashboard/meta', icon: 'emoji_events', label: 'Meta' },
@@ -123,6 +124,7 @@ const menuItems = computed(() => {
     allItems.meta,
     allItems.categorias,
     allItems.competidores,
+    allItems.camarografos,
     allItems.posicion
   ];
 });

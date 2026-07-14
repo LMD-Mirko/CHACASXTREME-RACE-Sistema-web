@@ -106,6 +106,16 @@ export async function issueRiderProfileLink(id, options = {}) {
 }
 
 /**
+ * Genera (o reutiliza) el enlace mágico a “Mi carrera” (dossier).
+ */
+export async function issueRiderDossierLink(id, options = {}) {
+  const response = await api.post(`/api/riders/${id}/dossier-link`, {
+    regenerate: Boolean(options.regenerate),
+  });
+  return response.data.data;
+}
+
+/**
  * Elimina un piloto del sistema.
  * @param {number|string} id - ID del piloto.
  * @returns {Promise<Object>} Respuesta del servidor.

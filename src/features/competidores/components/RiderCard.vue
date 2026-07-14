@@ -101,6 +101,16 @@
           />
         </AppTooltip>
 
+        <AppTooltip content="Mi carrera">
+          <AppButton
+            variant="icon-action"
+            icon="folder_shared"
+            class="btn-dossier-link"
+            @click="$emit('share-dossier', rider)"
+            aria-label="Enlace Mi carrera"
+          />
+        </AppTooltip>
+
         <AppTooltip content="Eliminar" align="right">
           <AppButton
             variant="icon-action"
@@ -124,7 +134,7 @@ const props = defineProps({
   rider: { type: Object, required: true },
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'share-profile', 'share-dossier']);
 
 const statusStyle = computed(() => getStatusStyle(props.rider.race_status));
 

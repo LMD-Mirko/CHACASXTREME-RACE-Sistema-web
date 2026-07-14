@@ -35,6 +35,7 @@ const allItems = {
   meta:         { name: 'meta',                path: '/dashboard/meta',                icon: 'emoji_events',  label: 'Meta' },
   confirmacion: { name: 'confirmacion',        path: '/dashboard/confirmacion',        icon: 'assignment_turned_in', label: 'Confirmación' },
   competidores: { name: 'competidores',        path: '/dashboard/competidores',        icon: 'group',         label: 'Competidores' },
+  camarografos: { name: 'camarografos',        path: '/dashboard/camarografos',        icon: 'photo_camera',  label: 'Camarógrafos' },
   configuracion: { name: 'configuracion',       path: '/dashboard/configuracion',       icon: 'settings',      label: 'Configuración' },
   posicion:     { name: 'posicion',            path: '/dashboard/posicion',            icon: 'sports_score',  label: 'Posición' },
 };
@@ -56,6 +57,7 @@ const filteredNavItems = computed(() => {
     allItems.confirmacion,
     allItems.categorias,
     allItems.competidores,
+    allItems.camarografos,
     allItems.posicion,
     allItems.configuracion
   ];
