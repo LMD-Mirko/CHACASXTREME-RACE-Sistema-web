@@ -35,7 +35,7 @@
           <button
             type="button"
             class="share-pop__btn share-pop__btn--wa"
-            :disabled="!payload?.whatsapp_url || loading"
+            :disabled="(!payload?.whatsapp_url && !payload?.whatsapp_phone) || loading"
             title="Enviar por WhatsApp"
             @click="whatsapp"
           >
@@ -87,8 +87,10 @@ function place() {
   anchor.value = { top, left };
 }
 
-async function ensureLoaded() {
-  if (payload.value?.url) return payload.value;
+async function ensureLoaded(force = false) {
+  if (!force && payload.value?.url && payload.value?.whatsapp_text) {
+    return payload.value;
+  }
   loading.value = true;
   hint.value = '';
   try {
@@ -96,10 +98,12 @@ async function ensureLoaded() {
     payload.value = {
       url: data?.url || null,
       whatsapp_url: data?.whatsapp_url || null,
+      whatsapp_text: data?.whatsapp_text || null,
+      whatsapp_phone: data?.whatsapp_phone || null,
     };
     if (!payload.value.url) {
       hint.value = 'No se pudo generar el enlace.';
-    } else if (!payload.value.whatsapp_url) {
+    } else if (!payload.value.whatsapp_url && !payload.value.whatsapp_phone) {
       hint.value = 'Sin teléfono: solo puedes copiar.';
     }
     return payload.value;
@@ -136,13 +140,30 @@ async function copy() {
 }
 
 async function whatsapp() {
-  const data = await ensureLoaded();
-  if (!data?.whatsapp_url) {
+  const data = await ensureLoaded(true);
+  const phone = data?.whatsapp_phone;
+  const text = data?.whatsapp_text;
+  const openUrl = data?.whatsapp_url;
+
+  if (!openUrl && !phone) {
     hint.value = 'Falta teléfono para WhatsApp.';
     return;
   }
-  window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
-  open.value = false;
+
+  // Desktop: el texto en la URL de WhatsApp rompe emojis → copiar y pegar.
+  if (text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      hint.value = 'Mensaje copiado. Pégalo en el chat (Ctrl+V).';
+    } catch {
+      hint.value = 'Abriendo WhatsApp… si faltan emojis, usa Copiar.';
+    }
+  }
+
+  window.open(openUrl || `https://wa.me/${phone}`, '_blank', 'noopener,noreferrer');
+  setTimeout(() => {
+    open.value = false;
+  }, 2500);
 }
 
 function onDocClick(e) {
