@@ -21,6 +21,10 @@
             required
             placeholder="Ingresa tu usuario"
             class="manka-input"
+            autocomplete="username"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
           />
         </div>
       </div>
@@ -38,6 +42,9 @@
             placeholder="••••••••"
             class="manka-input manka-input--password"
             autocomplete="current-password"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
           />
           <button
             type="button"
