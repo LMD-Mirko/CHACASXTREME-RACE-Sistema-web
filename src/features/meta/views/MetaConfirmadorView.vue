@@ -70,10 +70,16 @@
                 </div>
               </div>
               <div class="card-right">
-                <span class="material-icons arrow-chevron">chevron_right</span>
-                <button class="btn-discard" @click.stop="onDiscard(item.id)">
-                  <span class="material-icons">close</span>
+                <button
+                  type="button"
+                  class="btn-scan"
+                  title="Escanear QR de placa"
+                  aria-label="Escanear QR de placa"
+                  @click.stop="openScan(item)"
+                >
+                  <span class="material-icons">qr_code_scanner</span>
                 </button>
+                <span class="material-icons arrow-chevron">chevron_right</span>
               </div>
             </div>
           </div>
@@ -177,6 +183,17 @@
         @assigned="onAssignedComplete"
       />
     </Teleport>
+
+    <ContinuousQrScanner
+      :open="!!scanTarget"
+      mode="confirm"
+      role-label="META"
+      title="Asignar por QR"
+      :subtitle="scanSubtitle"
+      confirm-label="Asignar a este tiempo"
+      :on-commit="commitScan"
+      @close="scanTarget = null"
+    />
   </div>
 </template>
 
@@ -184,6 +201,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useMeta } from '../hooks/useMeta';
 import MetaAssignModal from '../components/mobile/MetaAssignModal.vue';
+import ContinuousQrScanner from '../../../components/qr/ContinuousQrScanner.vue';
 import { formatTimeOnly, formatRaceClockMs } from '../../../core/time/raceTime';
 import { useMangaElapsedStopwatch } from '../../../core/time/useMangaElapsedStopwatch';
 
@@ -192,12 +210,45 @@ const {
   loadInitialData,
   addQueueItemLocally,
   handleRiderFinishedEvent,
-  annulBlindTime,
   assignBlindTime,
   riders,
   activeCompetition,
   isLoading
 } = useMeta();
+
+const scanTarget = ref(null);
+const scanSubtitle = computed(() => {
+  if (!scanTarget.value) return '';
+  return `Tiempo congelado ${formatTimeStr(scanTarget.value.blind_timestamp)}. Escaneá la placa y confirmá.`;
+});
+
+function openScan(item) {
+  scanTarget.value = item;
+}
+
+async function commitScan(rider) {
+  if (!scanTarget.value?.id) {
+    return { ok: false, message: 'Sin tiempo seleccionado' };
+  }
+  if (!rider?.plate_number) {
+    return { ok: false, message: 'QR sin placa' };
+  }
+  const result = await assignBlindTime(
+    scanTarget.value.id,
+    parseInt(rider.plate_number, 10),
+    { silent: true },
+  );
+  if (result?.ok) {
+    scanTarget.value = null;
+    selectedItemForAssign.value = null;
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    already: !!result?.already,
+    message: result?.message || 'No se pudo asignar',
+  };
+}
 
 function formatStartClock(dateTimeStr) {
   if (!dateTimeStr) return 'Esperando Largada';
@@ -288,12 +339,6 @@ async function onSelectRider(rider) {
     } catch (err) {
       console.error(err);
     }
-  }
-}
-
-function onDiscard(id) {
-  if (confirm('¿Anular esta marca de tiempo?')) {
-    annulBlindTime(id);
   }
 }
 
@@ -586,7 +631,7 @@ onBeforeUnmount(() => {
 .card-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .arrow-chevron {
@@ -594,24 +639,23 @@ onBeforeUnmount(() => {
   color: var(--color-text-secondary);
 }
 
-.btn-discard {
-  width: 36px;
-  height: 36px;
+.btn-scan {
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
+  border: 1px solid rgba(255, 94, 0, 0.35);
+  background: rgba(255, 94, 0, 0.1);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.btn-discard:hover {
-  border-color: var(--color-error);
-  color: var(--color-error);
-  background: rgba(239, 68, 68, 0.05);
+.btn-scan .material-icons {
+  font-size: 20px;
 }
 
 /* Search Box Runners */

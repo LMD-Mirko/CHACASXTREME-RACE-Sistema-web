@@ -83,15 +83,19 @@ export function useMeta() {
     }
   }
 
-  async function assignBlindTime(queueId, plateNumber) {
+  async function assignBlindTime(queueId, plateNumber, options = {}) {
+    const silent = !!options.silent;
     isLoading.value = true;
     try {
       await assignPlate(queueId, plateNumber);
       finishTimeQueue.value = finishTimeQueue.value.filter(q => q.id !== queueId);
       const ridersList = await getRidersByCategory('');
       riders.value = ridersList || [];
+      return { ok: true };
     } catch (err) {
-      alert(err.response?.data?.message || err.friendlyMessage || 'Error al asignar la placa.');
+      const message = err.response?.data?.message || err.friendlyMessage || 'Error al asignar la placa.';
+      if (!silent) alert(message);
+      return { ok: false, message };
     } finally {
       isLoading.value = false;
     }

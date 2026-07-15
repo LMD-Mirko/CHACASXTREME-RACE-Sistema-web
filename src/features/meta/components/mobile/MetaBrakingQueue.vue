@@ -22,10 +22,16 @@
         </div>
 
         <div class="card-right">
-          <span class="material-icons arrow-chevron">chevron_right</span>
-          <button class="btn-discard" @click.stop="onDiscard(item.id)">
-            <span class="material-icons">close</span>
+          <button
+            type="button"
+            class="btn-scan"
+            title="Escanear QR de placa"
+            aria-label="Escanear QR de placa"
+            @click.stop="openScan(item)"
+          >
+            <span class="material-icons">qr_code_scanner</span>
           </button>
+          <span class="material-icons arrow-chevron">chevron_right</span>
         </div>
       </div>
     </div>
@@ -35,27 +41,69 @@
       <span class="material-icons">timer_off</span>
       <p>Esperando cruces de corredores por meta...</p>
     </div>
+
+    <ContinuousQrScanner
+      :open="!!scanTarget"
+      mode="confirm"
+      role-label="META"
+      title="Asignar por QR"
+      :subtitle="scanSubtitle"
+      confirm-label="Asignar a este tiempo"
+      :on-commit="commitScan"
+      @close="scanTarget = null"
+    />
   </div>
 </template>
 
 <script setup>
+import { computed, ref } from 'vue';
 import { useMeta } from '../../hooks/useMeta';
 import { formatRaceClockMs } from '../../../../core/time/raceTime';
+import ContinuousQrScanner from '../../../../components/qr/ContinuousQrScanner.vue';
 
 defineEmits(['assign']);
 
-const { finishTimeQueue, annulBlindTime } = useMeta();
+const { finishTimeQueue, assignBlindTime } = useMeta();
+const scanTarget = ref(null);
+
+const scanSubtitle = computed(() => {
+  if (!scanTarget.value) return '';
+  const t = formatTimeStr(scanTarget.value.blind_timestamp);
+  return `Tiempo congelado ${t}. Escaneá la placa y confirmá.`;
+});
 
 function formatTimeStr(dateStr) {
   if (!dateStr) return '';
   return formatRaceClockMs(dateStr);
 }
 
-function onDiscard(id) {
-  if (confirm('¿Anular esta marca de tiempo?')) {
-    annulBlindTime(id);
-  }
+function openScan(item) {
+  scanTarget.value = item;
 }
+
+async function commitScan(rider) {
+  if (!scanTarget.value?.id) {
+    return { ok: false, message: 'Sin tiempo seleccionado' };
+  }
+  if (!rider?.plate_number) {
+    return { ok: false, message: 'QR sin placa' };
+  }
+  const result = await assignBlindTime(
+    scanTarget.value.id,
+    parseInt(rider.plate_number, 10),
+    { silent: true },
+  );
+  if (result?.ok) {
+    scanTarget.value = null;
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    already: !!result?.already,
+    message: result?.message || 'No se pudo asignar',
+  };
+}
+
 </script>
 
 <style scoped>
@@ -164,11 +212,11 @@ function onDiscard(id) {
 .card-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
 .arrow-chevron {
-  font-size: 24px;
+  font-size: 22px;
   color: var(--color-text-secondary);
   transition: transform 0.2s;
 }
@@ -178,25 +226,28 @@ function onDiscard(id) {
   transform: translateX(2px);
 }
 
-.btn-discard {
+.btn-scan {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
+  border: 1px solid rgba(255, 94, 0, 0.35);
+  background: rgba(255, 94, 0, 0.1);
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   touch-action: manipulation;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.btn-discard:hover {
-  background: rgba(239, 68, 68, 0.05);
-  border-color: var(--color-error);
-  color: var(--color-error);
+.btn-scan:active {
+  transform: scale(0.96);
+}
+
+.btn-scan .material-icons {
+  font-size: 22px;
 }
 
 .empty-state {
