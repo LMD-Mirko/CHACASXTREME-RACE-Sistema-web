@@ -3,25 +3,58 @@
     <div v-if="open" class="qr-session" role="dialog" aria-modal="true">
       <header class="qr-session__top">
         <div class="qr-session__titles">
-          <span class="qr-session__badge">{{ roleLabel }}</span>
+          <span class="qr-session__badge">{{ roleLabel }} · {{ engineLabel }}</span>
           <h2>{{ title }}</h2>
           <p>{{ subtitle }}</p>
         </div>
-        <button type="button" class="qr-session__exit" @click="exit">
-          <span class="material-icons">close</span>
-          <span>Salir</span>
-        </button>
+        <div class="qr-session__controls">
+          <button
+            v-if="hasTorch"
+            type="button"
+            class="qr-session__tool"
+            :class="{ 'qr-session__tool--on': torchOn }"
+            :aria-label="torchOn ? 'Apagar linterna' : 'Encender linterna'"
+            @click="toggleTorch"
+          >
+            <span class="material-icons">{{ torchOn ? 'flash_on' : 'flash_off' }}</span>
+          </button>
+          <button
+            v-if="hasZoom"
+            type="button"
+            class="qr-session__tool"
+            aria-label="Acercar"
+            @click="bumpZoom"
+          >
+            <span class="material-icons">zoom_in</span>
+          </button>
+          <button type="button" class="qr-session__exit" @click="exit">
+            <span class="material-icons">close</span>
+            <span>Salir</span>
+          </button>
+        </div>
       </header>
 
       <div class="qr-session__stage">
-        <div :id="readerId" class="qr-session__reader"></div>
-        <div class="qr-session__frame" aria-hidden="true">
+        <div ref="mountRef" class="qr-session__reader"></div>
+
+        <div
+          class="qr-session__frame"
+          :class="{
+            'qr-session__frame--lock': lockPulse,
+            'qr-session__frame--ok': lockPulse === 'ok',
+            'qr-session__frame--err': lockPulse === 'err',
+          }"
+          aria-hidden="true"
+        >
           <span class="corner tl"></span>
           <span class="corner tr"></span>
           <span class="corner bl"></span>
           <span class="corner br"></span>
+          <span class="scan-beam" />
         </div>
+
         <p class="qr-session__hint">{{ hintText }}</p>
+        <p v-if="statusLine" class="qr-session__status">{{ statusLine }}</p>
       </div>
 
       <div class="qr-session__feed">
@@ -38,7 +71,6 @@
         </ul>
       </div>
 
-      <!-- Confirmación solo Partida / Meta -->
       <div v-if="pendingConfirm" class="qr-confirm" @click.self="cancelConfirm">
         <div class="qr-confirm__card">
           <p class="qr-confirm__kicker">Confirmar escaneo</p>
@@ -61,7 +93,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { Html5Qrcode } from 'html5-qrcode';
+import { AdvancedQrEngine, supportsNativeBarcode } from '../../core/qr/advancedQrEngine.js';
 import { resolvePlateQr } from '../../core/qr/plateQrApi.js';
 
 const props = defineProps({
@@ -81,42 +113,64 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const readerId = `qr-reader-${Math.random().toString(36).slice(2, 9)}`;
+const mountRef = ref(null);
 const flash = ref(null);
 const recent = ref([]);
 const pendingConfirm = ref(null);
 const busy = ref(false);
-const hintText = computed(() =>
-  props.mode === 'confirm'
-    ? 'Escaneá → confirmar → seguí con el siguiente'
-    : 'Escaneo continuo · se registra al instante',
+const lockPulse = ref('');
+const torchOn = ref(false);
+const hasTorch = ref(false);
+const hasZoom = ref(false);
+const engineName = ref(supportsNativeBarcode() ? 'native' : 'compat');
+const statusLine = ref('');
+const zoomFactor = ref(1.4);
+
+const engineLabel = computed(() =>
+  engineName.value === 'native' ? 'Motor nativo' : 'Motor compat',
 );
 
-let scanner = null;
-let cooldownUntil = 0;
-let lastPayload = '';
+const hintText = computed(() =>
+  props.mode === 'confirm'
+    ? 'Apuntá → confirma → siguiente (doble lectura segura)'
+    : 'Escaneo continuo inteligente · registro al instante',
+);
+
+let engine = null;
 let flashTimer = null;
-let paused = false;
+let lockTimer = null;
+/** @type {Map<number, number>} plate → cooldownUntil */
+const plateCooldown = new Map();
+/** payloads en vuelo (resolver+commit) */
+const inflightPayloads = new Set();
+let queuedPayload = null;
+let audioCtx = null;
 
 function beep(ok = true) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.value = ok ? 880 : 220;
-    g.gain.value = 0.04;
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = ok ? 'triangle' : 'sawtooth';
+    o.frequency.value = ok ? 980 : 180;
+    g.gain.value = 0.035;
     o.connect(g);
-    g.connect(ctx.destination);
+    g.connect(audioCtx.destination);
     o.start();
-    o.stop(ctx.currentTime + (ok ? 0.08 : 0.16));
+    o.stop(audioCtx.currentTime + (ok ? 0.07 : 0.14));
   } catch { /* ignore */ }
+}
+
+function pulse(kind) {
+  lockPulse.value = kind || 'lock';
+  if (lockTimer) clearTimeout(lockTimer);
+  lockTimer = setTimeout(() => { lockPulse.value = ''; }, kind ? 520 : 280);
 }
 
 function showFlash(type, title, detail) {
   flash.value = { type, title, detail };
   if (flashTimer) clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { flash.value = null; }, 1600);
+  flashTimer = setTimeout(() => { flash.value = null; }, 1500);
 }
 
 function pushRecent(rider) {
@@ -124,68 +178,135 @@ function pushRecent(rider) {
     {
       plate: rider.plate_number,
       name: rider.full_name,
-      when: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      when: new Date().toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
     },
     ...recent.value,
   ].slice(0, 8);
 }
 
+function plateKey(rider) {
+  return parseInt(rider?.plate_number, 10) || 0;
+}
+
+function isPlateCool(plate) {
+  const until = plateCooldown.get(plate) || 0;
+  return Date.now() >= until;
+}
+
+function coolPlate(plate, ms) {
+  plateCooldown.set(plate, Date.now() + ms);
+}
+
 async function pauseCamera() {
-  paused = true;
-  try { await scanner?.pause?.(true); } catch { /* ignore */ }
+  try { await engine?.pause(); } catch { /* */ }
 }
 
 async function resumeCamera() {
-  paused = false;
-  try { await scanner?.resume?.(); } catch { /* ignore */ }
+  try { await engine?.resume(); } catch { /* */ }
 }
 
-async function handleDecoded(raw) {
-  if (!props.open || busy.value || paused) return;
-  const now = Date.now();
-  if (now < cooldownUntil) return;
-  if (raw === lastPayload && now - cooldownUntil < 4000) return;
+async function toggleTorch() {
+  if (!engine) return;
+  const ok = await engine.toggleTorch();
+  if (ok) torchOn.value = engine.torchOn;
+}
 
+async function bumpZoom() {
+  if (!engine || !hasZoom.value) return;
+  zoomFactor.value = zoomFactor.value >= 2.2 ? 1.2 : zoomFactor.value + 0.4;
+  await engine.setZoom(zoomFactor.value);
+}
+
+/**
+ * Pipeline inteligente:
+ * - caché de resolve (API)
+ * - cooldown por placa (no por frame)
+ * - cola de 1 payload si está busy con otra placa
+ */
+async function handlePayload(payload) {
+  if (!props.open || pendingConfirm.value) return;
+  if (inflightPayloads.has(payload)) return;
+
+  // Si está ocupado con otra cosa, guardar el más reciente distinto
+  if (busy.value) {
+    queuedPayload = payload;
+    statusLine.value = 'Cola inteligente…';
+    return;
+  }
+
+  inflightPayloads.add(payload);
   busy.value = true;
+  pulse('lock');
+  statusLine.value = 'Validando…';
+
   try {
-    const rider = await resolvePlateQr(raw);
+    const rider = await resolvePlateQr(payload);
     if (!rider) {
       beep(false);
+      pulse('err');
       showFlash('err', 'QR inválido', 'No pertenece a esta edición');
-      cooldownUntil = Date.now() + 1200;
+      statusLine.value = '';
       return;
     }
 
-    lastPayload = raw;
+    const plate = plateKey(rider);
+    if (!isPlateCool(plate)) {
+      statusLine.value = '';
+      return;
+    }
 
     if (props.mode === 'confirm') {
       beep(true);
+      pulse('ok');
       pendingConfirm.value = rider;
+      statusLine.value = '';
       await pauseCamera();
       return;
     }
 
-    // Modo automático (Intermedio)
+    // Modo auto
     const result = await props.onCommit(rider);
-    cooldownUntil = Date.now() + 2200;
     if (result?.already) {
+      coolPlate(plate, 1600);
       beep(false);
+      pulse('err');
       showFlash('warn', `#${rider.plate_number}`, result.message || 'Ya estaba marcado');
     } else if (result?.ok) {
+      coolPlate(plate, 1400);
       beep(true);
+      pulse('ok');
       showFlash('ok', `#${rider.plate_number}`, rider.full_name);
       pushRecent(rider);
-      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([18, 30, 18]);
+      }
     } else {
+      coolPlate(plate, 900);
       beep(false);
+      pulse('err');
       showFlash('err', `#${rider.plate_number}`, result?.message || 'No se pudo registrar');
     }
+    statusLine.value = '';
   } catch (e) {
     beep(false);
+    pulse('err');
     showFlash('err', 'Error', e.friendlyMessage || e.message || 'Fallo al leer QR');
-    cooldownUntil = Date.now() + 1500;
+    statusLine.value = '';
   } finally {
+    inflightPayloads.delete(payload);
     busy.value = false;
+    // Drenar cola
+    if (queuedPayload && queuedPayload !== payload) {
+      const next = queuedPayload;
+      queuedPayload = null;
+      queueMicrotask(() => handlePayload(next));
+    } else {
+      queuedPayload = null;
+    }
   }
 }
 
@@ -194,17 +315,21 @@ async function acceptConfirm() {
   busy.value = true;
   try {
     const rider = pendingConfirm.value;
+    const plate = plateKey(rider);
     const result = await props.onCommit(rider);
     pendingConfirm.value = null;
-    cooldownUntil = Date.now() + 1800;
+    coolPlate(plate, 1500);
     if (result?.already) {
       showFlash('warn', `#${rider.plate_number}`, result.message || 'Ya estaba');
+      pulse('err');
     } else if (result?.ok) {
       showFlash('ok', `#${rider.plate_number}`, rider.full_name);
       pushRecent(rider);
+      pulse('ok');
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
     } else {
       showFlash('err', `#${rider.plate_number}`, result?.message || 'No se pudo guardar');
+      pulse('err');
     }
   } finally {
     busy.value = false;
@@ -214,43 +339,44 @@ async function acceptConfirm() {
 
 async function cancelConfirm() {
   pendingConfirm.value = null;
-  cooldownUntil = Date.now() + 800;
   await resumeCamera();
 }
 
-async function startScanner() {
+async function startEngine() {
   await nextTick();
-  await stopScanner();
-  scanner = new Html5Qrcode(readerId, { verbose: false });
-  const cameras = await Html5Qrcode.getCameras().catch(() => []);
-  const back = cameras.find((c) => /back|rear|environment/i.test(c.label)) || cameras[0];
-  const config = {
-    fps: 12,
-    qrbox: (viewW, viewH) => {
-      const side = Math.floor(Math.min(viewW, viewH) * 0.72);
-      return { width: side, height: side };
+  await stopEngine();
+  const el = mountRef.value;
+  if (!el) return;
+
+  engine = new AdvancedQrEngine(el, {
+    onPayload: (payload) => { handlePayload(payload); },
+    onReady: (info) => {
+      engineName.value = info.engine;
+      hasTorch.value = !!info.torch;
+      hasZoom.value = !!info.zoom;
+      torchOn.value = false;
+      statusLine.value = info.engine === 'native'
+        ? 'Detector nativo activo'
+        : 'Modo compatibilidad';
+      setTimeout(() => {
+        if (statusLine.value.includes('activo') || statusLine.value.includes('compat')) {
+          statusLine.value = '';
+        }
+      }, 1800);
     },
-    aspectRatio: 1,
-    disableFlip: false,
-  };
-  const camIdOrConfig = back?.id || { facingMode: 'environment' };
-  await scanner.start(
-    camIdOrConfig,
-    config,
-    (text) => { handleDecoded(text); },
-    () => {},
-  );
+    onError: (err) => {
+      showFlash('err', 'Cámara', err?.message || 'No se pudo iniciar');
+    },
+  });
+
+  await engine.start();
 }
 
-async function stopScanner() {
-  if (!scanner) return;
-  try {
-    const state = scanner.getState?.();
-    // 2 = SCANNING, 3 = PAUSED in html5-qrcode
-    if (state === 2 || state === 3) await scanner.stop();
-    await scanner.clear();
-  } catch { /* ignore */ }
-  scanner = null;
+async function stopEngine() {
+  if (!engine) return;
+  try { await engine.stop(); } catch { /* */ }
+  engine = null;
+  torchOn.value = false;
 }
 
 function exit() {
@@ -265,15 +391,19 @@ watch(
       recent.value = [];
       flash.value = null;
       pendingConfirm.value = null;
-      lastPayload = '';
+      plateCooldown.clear();
+      inflightPayloads.clear();
+      queuedPayload = null;
+      statusLine.value = 'Iniciando cámara…';
       try {
-        await startScanner();
+        await startEngine();
       } catch (e) {
         showFlash('err', 'Cámara', e?.message || 'No se pudo abrir la cámara');
+        statusLine.value = '';
       }
     } else {
       document.body.style.overflow = '';
-      await stopScanner();
+      await stopEngine();
     }
   },
 );
@@ -281,7 +411,8 @@ watch(
 onBeforeUnmount(async () => {
   document.body.style.overflow = '';
   if (flashTimer) clearTimeout(flashTimer);
-  await stopScanner();
+  if (lockTimer) clearTimeout(lockTimer);
+  await stopEngine();
 });
 </script>
 
@@ -332,19 +463,39 @@ onBeforeUnmount(async () => {
   line-height: 1.35;
 }
 
+.qr-session__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.qr-session__tool,
 .qr-session__exit {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   border: 1px solid rgba(255,255,255,.2);
   background: rgba(255,255,255,.08);
   color: #fff;
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 10px 12px;
   font-weight: 700;
   font-size: 0.85rem;
   cursor: pointer;
-  flex-shrink: 0;
+}
+
+.qr-session__tool {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.qr-session__tool--on {
+  background: rgba(255, 94, 0, 0.25);
+  border-color: rgba(255, 94, 0, 0.7);
+  color: #ff5e00;
 }
 
 .qr-session__stage {
@@ -355,24 +506,59 @@ onBeforeUnmount(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  background: #000;
 }
 
 .qr-session__reader {
-  width: min(100%, 560px);
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.qr-session__reader :deep(video) {
+.qr-session__reader :deep(video),
+.qr-session__reader :deep(.aqr-video) {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100%;
   object-fit: cover !important;
-  border-radius: 16px;
+  border-radius: 0;
+}
+
+.qr-session__reader :deep(.aqr-h5),
+.qr-session__reader :deep(#reader),
+.qr-session__reader :deep([id^='aqr-h5']) {
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none !important;
+}
+
+.qr-session__reader :deep(img) {
+  display: none !important;
 }
 
 .qr-session__frame {
   pointer-events: none;
   position: absolute;
-  width: min(72vw, 280px);
+  width: min(72vw, 300px);
   aspect-ratio: 1;
-  max-width: 72%;
+  max-width: 78%;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.qr-session__frame--lock {
+  box-shadow: 0 0 0 2px rgba(255, 94, 0, 0.55);
+  transform: scale(1.02);
+}
+
+.qr-session__frame--ok {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.75), 0 0 28px rgba(16, 185, 129, 0.35);
+}
+
+.qr-session__frame--err {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.7);
 }
 
 .corner {
@@ -386,9 +572,25 @@ onBeforeUnmount(async () => {
 .corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
 .corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
 
+.scan-beam {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ff5e00, transparent);
+  box-shadow: 0 0 12px rgba(255, 94, 0, 0.85);
+  animation: beam 1.55s ease-in-out infinite;
+}
+
+@keyframes beam {
+  0% { top: 12%; opacity: 0.35; }
+  50% { top: 78%; opacity: 1; }
+  100% { top: 12%; opacity: 0.35; }
+}
+
 .qr-session__hint {
   position: absolute;
-  bottom: 10px;
+  bottom: 36px;
   margin: 0;
   padding: 6px 12px;
   border-radius: 999px;
@@ -396,6 +598,20 @@ onBeforeUnmount(async () => {
   font-size: 0.75rem;
   font-weight: 600;
   color: rgba(255,255,255,.85);
+  z-index: 2;
+  text-align: center;
+  max-width: 90%;
+}
+
+.qr-session__status {
+  position: absolute;
+  bottom: 10px;
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 94, 0, 0.9);
   z-index: 2;
 }
 
@@ -518,7 +734,7 @@ onBeforeUnmount(async () => {
 
 @media (max-width: 480px) {
   .qr-session__titles p { font-size: 0.74rem; }
-  .qr-session__frame { width: min(78vw, 260px); }
+  .qr-session__frame { width: min(78vw, 280px); }
   .qr-session__exit { padding: 12px 14px; min-height: 44px; }
   .btn-ghost, .btn-ok { min-height: 48px; }
 }
@@ -526,16 +742,15 @@ onBeforeUnmount(async () => {
 @media (max-height: 640px) {
   .qr-session__feed { min-height: 72px; }
   .qr-recent { max-height: 72px; }
-  .qr-session__hint { bottom: 6px; font-size: 0.7rem; }
+  .qr-session__hint { bottom: 28px; font-size: 0.7rem; }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  .qr-session__reader { width: min(100%, 640px); }
-  .qr-session__frame { width: min(56vw, 320px); }
+  .qr-session__frame { width: min(56vw, 340px); }
 }
 
 @media (min-width: 900px) {
-  .qr-session__stage { padding: 12px 0; }
+  .qr-session__stage { padding: 0; }
   .qr-confirm { place-items: center; }
 }
 </style>
