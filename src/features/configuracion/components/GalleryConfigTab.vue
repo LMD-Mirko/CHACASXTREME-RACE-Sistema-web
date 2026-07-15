@@ -3,11 +3,11 @@
     <header class="media-head">
       <div>
         <h2>Galería web</h2>
-        <p>Imágenes de marketing (misma galería del panel Filament).</p>
+        <p>Elegí la categoría y subí cuantas imágenes quieras de una sola vez.</p>
       </div>
       <AppButton @click="openCreate">
         <span class="material-icons">add_photo_alternate</span>
-        Subir
+        Subir imágenes
       </AppButton>
     </header>
 
@@ -30,38 +30,103 @@
       <p v-if="!items.length" class="muted">No hay imágenes aún.</p>
     </div>
 
+    <!-- Subida masiva: solo categoría + varias fotos -->
     <AppModal
-      :is-open="modalOpen"
-      :title="editing ? 'Editar imagen' : 'Subir imagen'"
+      :is-open="createOpen"
+      title="Subir imágenes"
+      max-width="560px"
+      allow-overflow
+      @close="!saving && closeCreate()"
+    >
+      <form id="gallery-create-form" class="gallery-form" @submit.prevent="saveCreate">
+        <div class="form-group">
+          <label>Categoría *</label>
+          <AppSelect
+            v-model="createForm.image_type_id"
+            :options="typeOptions"
+            placeholder="Selecciona una categoría"
+            icon="category"
+          />
+        </div>
+
+        <div class="file-upload">
+          <span class="field-label">Imágenes *</span>
+          <button type="button" class="dropzone" @click="triggerCreateInput">
+            <span class="material-icons">photo_library</span>
+            <strong>Elegir imágenes</strong>
+            <small>Podés seleccionar varias a la vez · JPG, PNG o WEBP · máx. 10MB c/u</small>
+          </button>
+          <input
+            ref="createFileInput"
+            type="file"
+            class="hidden-file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            @change="onCreateFiles"
+          />
+        </div>
+
+        <div v-if="pickedFiles.length" class="picked">
+          <div class="picked-head">
+            <span>{{ pickedFiles.length }} imagen{{ pickedFiles.length === 1 ? '' : 'es' }} lista{{ pickedFiles.length === 1 ? '' : 's' }}</span>
+            <button type="button" class="link-clear" @click="clearPicked">Limpiar</button>
+          </div>
+          <ul class="picked-grid">
+            <li v-for="(p, i) in pickedPreviews" :key="`${p.name}-${i}`">
+              <img :src="p.url" :alt="p.name" />
+              <button type="button" class="rm" :aria-label="`Quitar ${p.name}`" @click="removePicked(i)">
+                <span class="material-icons">close</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <p v-if="progress" class="progress">{{ progress }}</p>
+        <p v-if="modalError" class="error">{{ modalError }}</p>
+      </form>
+
+      <template #footer>
+        <AppButton variant="secondary" :disabled="saving" @click="closeCreate">Cancelar</AppButton>
+        <AppButton
+          type="submit"
+          form="gallery-create-form"
+          :loading="saving"
+          :disabled="!pickedFiles.length || !createForm.image_type_id"
+        >
+          Subir {{ pickedFiles.length || '' }}
+        </AppButton>
+      </template>
+    </AppModal>
+
+    <!-- Edición de una sola imagen -->
+    <AppModal
+      :is-open="editOpen"
+      title="Editar imagen"
       max-width="520px"
       allow-overflow
-      @close="modalOpen = false"
+      @close="!saving && closeEdit()"
     >
-      <form id="gallery-form" class="gallery-form" @submit.prevent="save">
+      <form id="gallery-edit-form" class="gallery-form" @submit.prevent="saveEdit">
         <div class="form-group">
-          <label>Tipo *</label>
+          <label>Categoría *</label>
           <AppSelect
-            v-model="form.image_type_id"
+            v-model="editForm.image_type_id"
             :options="typeOptions"
-            placeholder="Selecciona un tipo"
+            placeholder="Selecciona una categoría"
             icon="category"
           />
         </div>
 
         <div class="form-group">
           <label for="gallery_title">Título</label>
-          <AppInput
-            id="gallery_title"
-            v-model="form.title"
-            placeholder="Título opcional"
-          />
+          <AppInput id="gallery_title" v-model="editForm.title" placeholder="Título opcional" />
         </div>
 
         <div class="form-group">
           <label for="gallery_description">Descripción</label>
           <textarea
             id="gallery_description"
-            v-model="form.description"
+            v-model="editForm.description"
             class="app-textarea"
             rows="3"
             placeholder="Descripción opcional"
@@ -69,29 +134,29 @@
         </div>
 
         <div class="file-upload">
-          <span class="field-label">Archivo {{ editing ? '(opcional al editar)' : '*' }}</span>
+          <span class="field-label">Reemplazar archivo (opcional)</span>
           <div class="file-row">
-            <button type="button" class="file-preview" @click="triggerFileInput">
-              <img v-if="displayPreview" :src="displayPreview" alt="Vista previa" />
+            <button type="button" class="file-preview" @click="triggerEditInput">
+              <img v-if="editPreview" :src="editPreview" alt="Vista previa" />
               <div v-else class="file-placeholder">
                 <span class="material-icons">add_photo_alternate</span>
                 <span>Foto</span>
               </div>
             </button>
             <div class="file-actions">
-              <AppButton type="button" variant="secondary" @click="triggerFileInput">
+              <AppButton type="button" variant="secondary" @click="triggerEditInput">
                 <span class="material-icons">upload_file</span>
-                {{ imageFileName || 'Seleccionar archivo' }}
+                {{ editFileName || 'Seleccionar archivo' }}
               </AppButton>
               <p class="help">JPG, PNG o WEBP. Máx. 10MB.</p>
             </div>
           </div>
           <input
-            ref="fileInput"
+            ref="editFileInput"
             type="file"
             class="hidden-file"
             accept="image/jpeg,image/png,image/webp,image/gif"
-            @change="onFile"
+            @change="onEditFile"
           />
         </div>
 
@@ -99,15 +164,15 @@
       </form>
 
       <template #footer>
-        <AppButton variant="secondary" @click="modalOpen = false">Cancelar</AppButton>
-        <AppButton type="submit" form="gallery-form" :loading="saving">Guardar</AppButton>
+        <AppButton variant="secondary" :disabled="saving" @click="closeEdit">Cancelar</AppButton>
+        <AppButton type="submit" form="gallery-edit-form" :loading="saving">Guardar</AppButton>
       </template>
     </AppModal>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import {
   listGalleryTypes,
   listGalleryAdmin,
@@ -116,20 +181,31 @@ import {
   deleteGalleryItem,
 } from '../services/mediaAdminService.js';
 
+const MAX_FILES = 60;
+
 const items = ref([]);
 const types = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref('');
 const toast = ref('');
-const modalOpen = ref(false);
 const modalError = ref('');
-const editing = ref(null);
-const imageFile = ref(null);
-const previewUrl = ref('');
-const fileInput = ref(null);
+const progress = ref('');
 
-const form = reactive({
+const createOpen = ref(false);
+const editOpen = ref(false);
+const editing = ref(null);
+
+const createFileInput = ref(null);
+const editFileInput = ref(null);
+
+const pickedFiles = ref([]);
+const pickedPreviews = ref([]);
+const editImageFile = ref(null);
+const editPreviewUrl = ref('');
+
+const createForm = reactive({ image_type_id: '' });
+const editForm = reactive({
   image_type_id: '',
   title: '',
   description: '',
@@ -139,11 +215,11 @@ const typeOptions = computed(() =>
   (types.value || []).map((t) => ({ value: t.id, label: t.name })),
 );
 
-const displayPreview = computed(
-  () => previewUrl.value || editing.value?.image_url || '',
+const editPreview = computed(
+  () => editPreviewUrl.value || editing.value?.image_url || '',
 );
 
-const imageFileName = computed(() => imageFile.value?.name || '');
+const editFileName = computed(() => editImageFile.value?.name || '');
 
 async function load() {
   loading.value = true;
@@ -160,60 +236,163 @@ async function load() {
 }
 
 function openCreate() {
-  editing.value = null;
-  form.image_type_id = types.value[0]?.id || '';
-  form.title = '';
-  form.description = '';
-  imageFile.value = null;
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = '';
-  if (fileInput.value) fileInput.value.value = '';
   modalError.value = '';
-  modalOpen.value = true;
+  progress.value = '';
+  createForm.image_type_id = types.value[0]?.id || '';
+  clearPicked();
+  createOpen.value = true;
+}
+
+function closeCreate() {
+  createOpen.value = false;
+  clearPicked();
+  progress.value = '';
+  modalError.value = '';
 }
 
 function openEdit(item) {
   editing.value = item;
-  form.image_type_id = item.image_type_id || item.image_type?.id || '';
-  form.title = item.title || '';
-  form.description = item.description || '';
-  imageFile.value = null;
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = '';
-  if (fileInput.value) fileInput.value.value = '';
+  editForm.image_type_id = item.image_type_id || item.image_type?.id || '';
+  editForm.title = item.title || '';
+  editForm.description = item.description || '';
+  editImageFile.value = null;
+  if (editPreviewUrl.value) URL.revokeObjectURL(editPreviewUrl.value);
+  editPreviewUrl.value = '';
+  if (editFileInput.value) editFileInput.value.value = '';
   modalError.value = '';
-  modalOpen.value = true;
+  editOpen.value = true;
 }
 
-function triggerFileInput() {
-  fileInput.value?.click();
+function closeEdit() {
+  editOpen.value = false;
+  editing.value = null;
+  if (editPreviewUrl.value) URL.revokeObjectURL(editPreviewUrl.value);
+  editPreviewUrl.value = '';
+  editImageFile.value = null;
+  modalError.value = '';
 }
 
-function onFile(e) {
+function triggerCreateInput() {
+  createFileInput.value?.click();
+}
+
+function triggerEditInput() {
+  editFileInput.value?.click();
+}
+
+function revokePreviews() {
+  pickedPreviews.value.forEach((p) => URL.revokeObjectURL(p.url));
+  pickedPreviews.value = [];
+}
+
+function clearPicked() {
+  revokePreviews();
+  pickedFiles.value = [];
+  if (createFileInput.value) createFileInput.value.value = '';
+}
+
+function onCreateFiles(e) {
+  const list = Array.from(e.target.files || []);
+  if (!list.length) return;
+
+  const incoming = [...pickedFiles.value, ...list];
+  if (incoming.length > MAX_FILES) {
+    modalError.value = `Máximo ${MAX_FILES} imágenes por carga.`;
+  } else {
+    modalError.value = '';
+  }
+
+  const merged = incoming.slice(0, MAX_FILES);
+  revokePreviews();
+  pickedFiles.value = merged;
+  pickedPreviews.value = merged.map((f) => ({
+    name: f.name,
+    url: URL.createObjectURL(f),
+  }));
+  // permitir re-seleccionar el mismo archivo después
+  e.target.value = '';
+}
+
+function removePicked(index) {
+  const next = [...pickedFiles.value];
+  next.splice(index, 1);
+  const [removed] = pickedPreviews.value.splice(index, 1);
+  if (removed?.url) URL.revokeObjectURL(removed.url);
+  pickedFiles.value = next;
+}
+
+function onEditFile(e) {
   const file = e.target.files?.[0] || null;
-  imageFile.value = file;
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = file ? URL.createObjectURL(file) : '';
+  editImageFile.value = file;
+  if (editPreviewUrl.value) URL.revokeObjectURL(editPreviewUrl.value);
+  editPreviewUrl.value = file ? URL.createObjectURL(file) : '';
 }
 
-async function save() {
+async function saveCreate() {
+  saving.value = true;
+  modalError.value = '';
+  progress.value = '';
+  try {
+    if (!createForm.image_type_id) throw new Error('Selecciona una categoría.');
+    if (!pickedFiles.value.length) throw new Error('Elegí al menos una imagen.');
+
+    const typeId = createForm.image_type_id;
+    const total = pickedFiles.value.length;
+    let ok = 0;
+    const errors = [];
+
+    for (let i = 0; i < total; i += 1) {
+      const file = pickedFiles.value[i];
+      progress.value = `Subiendo ${i + 1} / ${total}…`;
+      try {
+        await createGalleryItem(
+          {
+            image_type_id: typeId,
+            title: null,
+            description: null,
+          },
+          file,
+        );
+        ok += 1;
+      } catch (e) {
+        errors.push(`${file.name}: ${e.friendlyMessage || e.message || 'falló'}`);
+      }
+    }
+
+    if (ok === 0) {
+      throw new Error(errors[0] || 'No se pudo subir ninguna imagen.');
+    }
+
+    closeCreate();
+    toast.value = errors.length
+      ? `Subidas ${ok}/${total}. Algunas fallaron.`
+      : `${ok} imagen${ok === 1 ? '' : 'es'} subida${ok === 1 ? '' : 's'}.`;
+    setTimeout(() => { toast.value = ''; }, 3500);
+    await load();
+  } catch (e) {
+    modalError.value = e.friendlyMessage || e.message || 'No se pudo subir.';
+  } finally {
+    saving.value = false;
+    progress.value = '';
+  }
+}
+
+async function saveEdit() {
   saving.value = true;
   modalError.value = '';
   try {
-    if (!form.image_type_id) throw new Error('Selecciona un tipo.');
-    const payload = {
-      image_type_id: form.image_type_id,
-      title: form.title || null,
-      description: form.description || null,
-    };
-    if (editing.value) {
-      await updateGalleryItem(editing.value.id, payload, imageFile.value);
-    } else {
-      if (!imageFile.value) throw new Error('Sube una imagen.');
-      await createGalleryItem(payload, imageFile.value);
-    }
-    modalOpen.value = false;
-    toast.value = 'Imagen guardada.';
+    if (!editForm.image_type_id) throw new Error('Selecciona una categoría.');
+    await updateGalleryItem(
+      editing.value.id,
+      {
+        image_type_id: editForm.image_type_id,
+        title: editForm.title || null,
+        description: editForm.description || null,
+      },
+      editImageFile.value,
+    );
+    closeEdit();
+    toast.value = 'Imagen actualizada.';
     setTimeout(() => { toast.value = ''; }, 2500);
     await load();
   } catch (e) {
@@ -234,6 +413,11 @@ async function remove(item) {
 }
 
 onMounted(load);
+
+onBeforeUnmount(() => {
+  revokePreviews();
+  if (editPreviewUrl.value) URL.revokeObjectURL(editPreviewUrl.value);
+});
 </script>
 
 <style scoped>
@@ -351,6 +535,106 @@ onMounted(load);
   gap: 8px;
 }
 
+.dropzone {
+  width: 100%;
+  border: 2px dashed var(--color-border);
+  border-radius: 14px;
+  background: var(--color-input-bg);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.dropzone:hover {
+  border-color: var(--color-primary);
+  background: rgba(255, 94, 0, 0.06);
+}
+
+.dropzone .material-icons {
+  font-size: 32px;
+  color: var(--color-primary);
+}
+
+.dropzone strong {
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+}
+
+.dropzone small {
+  font-size: 0.75rem;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.picked-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.link-clear {
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.picked-grid {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.5rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.picked-grid li {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.picked-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.picked-grid .rm {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.picked-grid .rm .material-icons {
+  font-size: 14px;
+}
+
 .file-row {
   display: flex;
   align-items: center;
@@ -369,11 +653,6 @@ onMounted(load);
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  transition: border-color 0.2s ease;
-}
-
-.file-preview:hover {
-  border-color: var(--color-primary);
 }
 
 .file-preview img {
@@ -392,10 +671,6 @@ onMounted(load);
   font-weight: 700;
 }
 
-.file-placeholder .material-icons {
-  font-size: 22px;
-}
-
 .file-actions {
   display: flex;
   flex-direction: column;
@@ -411,6 +686,13 @@ onMounted(load);
 
 .hidden-file {
   display: none;
+}
+
+.progress {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
 .toast { color: #059669; font-weight: 700; }
