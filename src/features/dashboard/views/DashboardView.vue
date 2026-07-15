@@ -68,7 +68,7 @@ import RealTimeNotificationCenter from '../../../components/common/RealTimeNotif
 import api from '../../../core/network/axios';
 import { syncServerClock } from '../../../core/time/raceTime';
 
-const ADMIN_MOBILE_ALLOWED = ['competidores', 'camarografos', 'posicion', 'configuracion'];
+const ADMIN_MOBILE_ALLOWED = ['competidores', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
 
 const isSidebarOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 1023px)');

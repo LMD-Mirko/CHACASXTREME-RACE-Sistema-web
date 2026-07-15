@@ -1,5 +1,24 @@
 <template>
   <div class="scanner-container fade-in">
+    <button type="button" class="qr-mode-btn" @click="qrOpen = true">
+      <span class="material-icons">qr_code_scanner</span>
+      <span class="qr-mode-btn__text">
+        <strong>QR continuo</strong>
+        <small>Escaneá sin salir · registro al instante</small>
+      </span>
+      <span class="material-icons qr-mode-btn__chev">chevron_right</span>
+    </button>
+
+    <ContinuousQrScanner
+      :open="qrOpen"
+      mode="auto"
+      role-label="INTERMEDIO"
+      title="Escaneo continuo"
+      subtitle="Acercate a cada placa. Se registra solo. Tocá Salir cuando termines."
+      :on-commit="commitQrPass"
+      @close="qrOpen = false"
+    />
+
     <!-- Fila Superior: Info del Checkpoint -->
     <div class="checkpoint-info-row">
       <div class="checkpoint-badge">
@@ -25,25 +44,6 @@
         <span class="telemetry-val-tech highlight-timer">{{ stopwatchTime }}</span>
       </div>
     </div>
-
-    <button type="button" class="qr-mode-btn" @click="qrOpen = true">
-      <span class="material-icons">qr_code_scanner</span>
-      <span class="qr-mode-btn__text">
-        <strong>QR continuo</strong>
-        <small>Escaneá sin salir · registro al instante</small>
-      </span>
-      <span class="material-icons qr-mode-btn__chev">chevron_right</span>
-    </button>
-
-    <ContinuousQrScanner
-      :open="qrOpen"
-      mode="auto"
-      role-label="INTERMEDIO"
-      title="Escaneo continuo"
-      subtitle="Acercate a cada placa. Se registra solo. Tocá Salir cuando termines."
-      :on-commit="commitQrPass"
-      @close="qrOpen = false"
-    />
 
     <!-- Único Buscador / Registrador de Placa en Ruta -->
     <div class="controls-card">

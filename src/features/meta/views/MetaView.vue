@@ -20,26 +20,6 @@
       </div>
     </div>
 
-    <button type="button" class="qr-mode-btn" @click="qrOpen = true">
-      <span class="material-icons">qr_code_scanner</span>
-      <span class="qr-mode-btn__text">
-        <strong>QR continuo</strong>
-        <small>Escaneá · confirmás · seguís con el siguiente</small>
-      </span>
-      <span class="material-icons qr-mode-btn__chev">chevron_right</span>
-    </button>
-
-    <ContinuousQrScanner
-      :open="qrOpen"
-      mode="confirm"
-      role-label="META"
-      title="Escaneo de llegadas"
-      subtitle="Cada QR pide confirmación y registra la llegada. Tocá Salir cuando termines."
-      confirm-label="Registrar llegada"
-      :on-commit="commitQrFinish"
-      @close="qrOpen = false"
-    />
-
     <div class="meta-view-root">
       <!-- LAYOUT DESKTOP/LAPTOP: Gatillo Ciego + Telemetría + Tabla de Auditoría Lateral (40% ancho) -->
       <div v-if="isDesktop" class="desktop-layout">
@@ -171,27 +151,20 @@ import MetaGatillo from '../components/desktop/MetaGatillo.vue';
 import MetaQueueTable from '../components/desktop/MetaQueueTable.vue';
 import MetaBrakingQueue from '../components/mobile/MetaBrakingQueue.vue';
 import MetaAssignModal from '../components/mobile/MetaAssignModal.vue';
-import ContinuousQrScanner from '../../../components/qr/ContinuousQrScanner.vue';
 import { formatTimeOnly, formatTimeStr } from '../../../core/time/raceTime';
 import { useMangaElapsedStopwatch } from '../../../core/time/useMangaElapsedStopwatch';
 
 const isDesktop = ref(window.innerWidth >= 1024);
 const selectedItemForAssign = ref(null);
-const qrOpen = ref(false);
 
 const {
   loadInitialData,
   addQueueItemLocally,
   handleRiderFinishedEvent,
-  registerFinishFromQr,
   riders,
   activeCompetition,
   finishTimeQueue
 } = useMeta();
-
-async function commitQrFinish(rider) {
-  return registerFinishFromQr(rider);
-}
 
 const isToastActive = ref(false);
 let toastTimeout = null;
@@ -365,53 +338,6 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(16, 185, 129, 0.15);
   padding: 2px 6px;
   border-radius: 6px;
-}
-
-.qr-mode-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 94, 0, 0.35);
-  background: linear-gradient(135deg, rgba(255, 94, 0, 0.16), rgba(255, 94, 0, 0.05));
-  color: var(--color-text-primary);
-  cursor: pointer;
-  text-align: left;
-  flex-shrink: 0;
-}
-
-.qr-mode-btn .material-icons:first-child {
-  font-size: 28px;
-  color: #ff5e00;
-}
-
-.qr-mode-btn__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.qr-mode-btn__text strong {
-  font-size: 0.95rem;
-  font-weight: 800;
-}
-
-.qr-mode-btn__text small {
-  font-size: 0.72rem;
-  color: var(--color-text-secondary);
-  font-weight: 600;
-}
-
-.qr-mode-btn__chev {
-  color: var(--color-text-secondary);
-}
-
-.qr-mode-btn:active {
-  transform: scale(0.985);
 }
 
 /* Telemetry Bar */

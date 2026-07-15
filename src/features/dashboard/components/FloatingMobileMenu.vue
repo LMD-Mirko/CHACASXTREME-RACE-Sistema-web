@@ -117,9 +117,10 @@ const menuItems = computed(() => {
   } else if (role.value === 'META') {
     return [allItems.meta, allItems.confirmacion, allItems.categorias, allItems.posicion];
   } else if (role.value === 'ADMIN') {
-    // Solo gestión en teléfono; en laptop el sidebar muestra el menú completo
+    // Teléfono: gestión + checkpoint (para probar mesa Intermedio). Laptop: sidebar completo.
     return [
       allItems.competidores,
+      allItems.checkpoint,
       allItems.camarografos,
       allItems.posicion,
       allItems.configuracion,

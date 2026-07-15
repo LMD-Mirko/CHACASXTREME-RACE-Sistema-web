@@ -1,7 +1,18 @@
 <template>
   <div class="checkpoint-view-root">
     <div class="operation-layout fade-in">
-      <div v-if="hasStart" class="operation-active-view">
+      <div v-if="!hasStart" class="waiting-inline-banner">
+        <span class="material-icons">sensors</span>
+        <div>
+          <strong>Esperando largada</strong>
+          <span>Ya podés preparar QR y lista. El registro queda listo al largar.</span>
+        </div>
+        <button type="button" class="btn-soft-sync" :disabled="isLoading" @click="() => loadInitialData()">
+          <span class="material-icons" :class="{ rotating: isLoading }">sync</span>
+        </button>
+      </div>
+
+      <div class="operation-active-view">
         <!-- Banner de mesa compartida (3 celulares, 1 punto) -->
         <div class="mesh-station-banner">
           <div class="mesh-station-left">
@@ -26,41 +37,6 @@
         <CheckpointScanner />
         <CheckpointHistory />
         <CheckpointOfflineStatus />
-      </div>
-
-      <div v-else class="waiting-start-view">
-        <div class="waiting-card">
-          <div class="waiting-station-header">
-            <span class="material-icons station-icon">room</span>
-            <h2>{{ checkpointName }}</h2>
-            <span class="station-phase">{{ selectedPhase === 'practica' ? 'Prueba' : 'Final' }}</span>
-            <span class="station-mesh-hint">Mesa compartida · varios celulares</span>
-          </div>
-
-          <div class="radar-pulse-container">
-            <div class="radar-ring"></div>
-            <div class="radar-ring-outer"></div>
-            <div class="radar-center">
-              <span class="material-icons beacon-icon">sensors</span>
-            </div>
-          </div>
-
-          <div class="waiting-details">
-            <h3>Esperando Largada</h3>
-            <p>La rampa de partida aún no ha registrado la largada oficial de esta competencia.</p>
-            <div class="active-event-badge">
-              <span class="material-icons event-icon">event</span>
-              <span>{{ activeCompetition?.name || 'Chacas Xtreme' }}</span>
-            </div>
-          </div>
-
-          <div class="waiting-actions">
-            <button class="btn-check-again" @click="() => loadInitialData()" :disabled="isLoading">
-              <span class="material-icons" :class="{ rotating: isLoading }">sync</span>
-              <span>{{ isLoading ? 'Comprobando...' : 'Recomprobar Estado' }}</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -182,6 +158,62 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
+.waiting-inline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--color-text-primary);
+}
+
+.waiting-inline-banner > .material-icons {
+  color: #f59e0b;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.waiting-inline-banner div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.waiting-inline-banner strong {
+  font-size: 12.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.waiting-inline-banner span {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.btn-soft-sync {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-soft-sync .material-icons {
+  font-size: 20px;
+}
+
 .mesh-station-banner {
   display: flex;
   align-items: center;
@@ -265,201 +297,8 @@ onBeforeUnmount(() => {
   letter-spacing: 0.3px;
 }
 
-.waiting-start-view {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 120px);
-  padding: 16px;
-}
-
-.waiting-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 24px;
-  padding: 32px 24px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: var(--shadow-premium);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 24px;
-}
-
-.waiting-station-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.station-icon {
-  font-size: 28px;
-  color: var(--color-primary);
-}
-
-.waiting-station-header h2 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
-  font-weight: 900;
-  text-transform: uppercase;
-  color: var(--color-text-primary);
-  margin-top: 4px;
-}
-
-.station-phase {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  background: var(--color-input-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  padding: 3px 8px;
-  border-radius: 6px;
-  margin-top: 4px;
-}
-
-.radar-pulse-container {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 10px 0;
-}
-
-.radar-center {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  box-shadow: 0 4px 12px rgba(255, 94, 0, 0.3);
-}
-
-.beacon-icon {
-  font-size: 24px;
-  color: #ffffff;
-  animation: pulseBeacon 2s infinite ease-in-out;
-}
-
-.radar-ring {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2px solid var(--color-primary);
-  opacity: 0;
-  z-index: 1;
-  animation: radarPulse 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
-}
-
-.radar-ring-outer {
-  position: absolute;
-  width: 130%;
-  height: 130%;
-  border-radius: 50%;
-  border: 1px solid var(--color-primary);
-  opacity: 0;
-  z-index: 1;
-  animation: radarPulse 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
-  animation-delay: 0.6s;
-}
-
-.waiting-details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.waiting-details h3 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--color-text-primary);
-  text-transform: uppercase;
-}
-
-.waiting-details p {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.active-event-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: rgba(255, 94, 0, 0.05);
-  border: 1px solid rgba(255, 94, 0, 0.12);
-  color: var(--color-primary);
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  width: fit-content;
-  margin: 8px auto 0 auto;
-}
-
-.event-icon {
-  font-size: 16px;
-}
-
-.waiting-actions {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 10px;
-}
-
-.btn-check-again {
-  height: 48px;
-  border-radius: 12px;
-  border: none;
-  background: var(--color-primary);
-  color: #ffffff;
-  font-size: 13.5px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(255, 94, 0, 0.15);
-  transition: all 0.2s ease;
-}
-
-.btn-check-again:hover:not(:disabled) {
-  opacity: 0.95;
-}
-
 .rotating {
   animation: spin 1.2s infinite linear;
-}
-
-@keyframes pulseBeacon {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-
-@keyframes radarPulse {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.3);
-    opacity: 0;
-  }
 }
 
 @keyframes spin {

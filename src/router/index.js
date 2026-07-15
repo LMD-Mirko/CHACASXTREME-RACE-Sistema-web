@@ -95,8 +95,8 @@ const ROLE_ALLOWED_ROUTES = {
   META: ['meta', 'confirmacion', 'categorias-explorer', 'posicion'],
 };
 
-/** En teléfono el ADMIN solo gestiona estas vistas; en laptop ve todo. */
-const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'camarografos', 'posicion', 'configuracion'];
+/** En teléfono el ADMIN gestiona + puede abrir checkpoint para pruebas Intermedio. */
+const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
 const ADMIN_MOBILE_DEFAULT = '/dashboard/competidores';
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 
