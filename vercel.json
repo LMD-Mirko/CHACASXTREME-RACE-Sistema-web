@@ -2,15 +2,15 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://enzyme-blog-reliance-franklin.trycloudflare.com/api/:path*"
+      "destination": "https://shuttle-out-distributor-decision.trycloudflare.com/api/:path*"
     },
     {
       "source": "/storage/:path*",
-      "destination": "https://enzyme-blog-reliance-franklin.trycloudflare.com/storage/:path*"
+      "destination": "https://shuttle-out-distributor-decision.trycloudflare.com/storage/:path*"
     },
     {
       "source": "/broadcasting/:path*",
-      "destination": "https://enzyme-blog-reliance-franklin.trycloudflare.com/broadcasting/:path*"
+      "destination": "https://shuttle-out-distributor-decision.trycloudflare.com/broadcasting/:path*"
     },
     {
       "source": "/(.*)",

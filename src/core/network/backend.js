@@ -15,7 +15,7 @@ export const REVERB_KEY = 'uqehdqpxmzpvlro4kocd';
 
 /** Tunnel 1 — API Laravel HTTPS (sin slash final) */
 export const BACKEND_API_BASE_URL =
-  'https://enzyme-blog-reliance-franklin.trycloudflare.com';
+  'https://shuttle-out-distributor-decision.trycloudflare.com';
 
 /** Tunnel 2 — Reverb / WebSocket wss */
 export const REVERB_HOST = 'grounds-trained-robin-essentially.trycloudflare.com';
