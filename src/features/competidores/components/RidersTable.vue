@@ -190,8 +190,6 @@ function hasPlate(rider) {
 }
 
 function resolvePhotoUrl(path) {
-  if (!path) return '';
-  if (String(path).startsWith('http')) return path;
   return storageUrl(path);
 }
 

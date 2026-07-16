@@ -24,7 +24,7 @@
           class="preview"
           :class="[`frame-${row.frame_shape || 'square'}`, `size-${row.display_size || 'md'}`]"
         >
-          <img v-if="row.logo_url" :src="row.logo_url" :alt="row.company_name" />
+          <img v-if="row.logo_url" :src="resolveLogoUrl(row.logo_url)" :alt="row.company_name" />
           <span v-else class="material-icons">image</span>
         </div>
         <div class="meta">
@@ -174,6 +174,7 @@ import {
   updateSponsor,
   deleteSponsor,
 } from '../services/mediaAdminService.js';
+import { storageUrl } from '../../../core/network/storageUrl.js';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -213,8 +214,12 @@ const form = reactive({
   is_active: true,
 });
 
+function resolveLogoUrl(path) {
+  return storageUrl(path);
+}
+
 const displayPreview = computed(
-  () => previewUrl.value || editing.value?.logo_url || '',
+  () => previewUrl.value || resolveLogoUrl(editing.value?.logo_url || ''),
 );
 
 const logoFileName = computed(() => logoFile.value?.name || '');

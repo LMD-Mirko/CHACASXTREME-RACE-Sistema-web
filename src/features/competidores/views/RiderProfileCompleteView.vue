@@ -290,6 +290,7 @@ import {
   unlockRiderProfile,
   updateRiderProfile,
 } from '../services/riderProfilePublicService';
+import { storageUrl } from '../../../core/network/storageUrl';
 
 const route = useRoute();
 const gateIn = ref(false);
@@ -461,7 +462,7 @@ async function save() {
     }
 
     const body = await updateRiderProfile(profileToken.value, fd);
-    if (body.data?.photo_url) localPreview.value = body.data.photo_url;
+    if (body.data?.photo_url) localPreview.value = storageUrl(body.data.photo_url);
     done.value = true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {

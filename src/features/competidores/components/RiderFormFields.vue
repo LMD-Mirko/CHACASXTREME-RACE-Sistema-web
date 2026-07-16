@@ -235,7 +235,6 @@ const showGuardianFields = computed(
 const previewUrl = computed(() => {
   if (localPreview.value) return localPreview.value;
   if (props.modelValue.photo_url) {
-    if (props.modelValue.photo_url.startsWith('http')) return props.modelValue.photo_url;
     return storageUrl(props.modelValue.photo_url);
   }
   return '';

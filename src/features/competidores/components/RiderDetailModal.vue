@@ -100,8 +100,6 @@ defineEmits(['close']);
 const statusStyle = computed(() => getStatusStyle(props.rider?.race_status));
 
 function resolvePhotoUrl(path) {
-  if (!path) return '';
-  if (String(path).startsWith('http')) return path;
   return storageUrl(path);
 }
 
