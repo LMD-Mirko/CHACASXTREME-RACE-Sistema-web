@@ -131,8 +131,8 @@
                   <circle cx="12" cy="12.5" r="3.25" stroke="currentColor" stroke-width="1.6" />
                 </svg>
               </span>
-              <strong>Toca para subir o tomar foto</strong>
-              <span>Cámara o galería</span>
+              <strong>Toca para subir tu foto</strong>
+              <span>Elige desde tu galería</span>
             </div>
             <span v-if="previewUrl" class="rp-photo-change">Cambiar foto</span>
           </button>
@@ -141,7 +141,6 @@
             ref="fileInput"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            capture="environment"
             class="sr-only"
             @change="onPhotoChange"
           />
