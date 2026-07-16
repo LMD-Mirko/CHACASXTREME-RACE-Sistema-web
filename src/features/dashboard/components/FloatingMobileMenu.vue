@@ -15,7 +15,7 @@
           <span class="material-icons menu-icon">forum</span>
           <span class="menu-label">{{ item.label }}</span>
           <span v-if="hasUnread && !panelOpen" class="chat-badge">
-            {{ unread > 9 ? '9+' : unread }}
+            {{ unreadLabel }}
           </span>
         </button>
 
@@ -59,7 +59,7 @@ import { useAuth } from '../../login/hooks/useAuth';
 import { useStaffChat } from '../composables/useStaffChat';
 
 const { currentUser } = useAuth();
-const { unread, hasUnread, panelOpen, togglePanel } = useStaffChat();
+const { unreadLabel, hasUnread, panelOpen, togglePanel } = useStaffChat();
 const toastMessage = ref('');
 const isKeyboardOpen = ref(false);
 let toastTimeout = null;
@@ -258,13 +258,25 @@ function showComingSoonAlert(label) {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #22a05a;
+  background: #e11d48;
   color: #fff;
   font-size: 9px;
   font-weight: 800;
   display: grid;
   place-items: center;
   line-height: 1;
+  animation: chat-badge-pop 0.35s ease;
+}
+
+@keyframes chat-badge-pop {
+  from {
+    transform: translateX(110%) scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(110%) scale(1);
+    opacity: 1;
+  }
 }
 
 .soon-badge {

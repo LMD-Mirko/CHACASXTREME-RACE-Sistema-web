@@ -10,7 +10,7 @@
   >
     <span class="material-icons">{{ panelOpen ? 'close' : 'forum' }}</span>
     <span v-if="hasUnread && !panelOpen" class="staff-chat-fab__badge">
-      {{ unread > 9 ? '9+' : unread }}
+      {{ unreadLabel }}
     </span>
   </button>
 </template>
@@ -20,7 +20,7 @@ import { useMediaQuery } from '@vueuse/core';
 import { useStaffChat } from '../composables/useStaffChat';
 
 const isDesktop = useMediaQuery('(min-width: 1024px)');
-const { unread, hasUnread, panelOpen, togglePanel } = useStaffChat();
+const { unreadLabel, hasUnread, panelOpen, togglePanel } = useStaffChat();
 </script>
 
 <style scoped>
@@ -30,49 +30,60 @@ const { unread, hasUnread, panelOpen, togglePanel } = useStaffChat();
   right: 18px;
   bottom: 18px;
   z-index: 88;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(255, 94, 0, 0.45);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--color-surface, #141414) 88%, #ff5e00);
-  color: #ff5e00;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(37, 211, 102, 0.35);
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .staff-chat-fab:hover {
-  background: #ff5e00;
-  color: #fff;
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 26px rgba(37, 211, 102, 0.45);
 }
 
 .staff-chat-fab--open {
   background: #2a2a2a;
-  color: #eee;
-  border-color: var(--color-border, #444);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .staff-chat-fab .material-icons {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .staff-chat-fab__badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   border-radius: 999px;
-  background: #22a05a;
+  background: #e11d48;
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   display: grid;
   place-items: center;
-  border: 2px solid var(--color-surface, #141414);
+  border: 2px solid var(--color-background, #0a0a0a);
+  line-height: 1;
+  animation: chat-badge-pop 0.35s ease;
+}
+
+@keyframes chat-badge-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style>

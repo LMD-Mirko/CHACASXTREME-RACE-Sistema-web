@@ -63,13 +63,6 @@
         </section>
       </div>
     </Transition>
-
-    <Transition name="fade">
-      <div v-if="toast && !panelOpen" class="staff-chat-toast">
-        <span class="material-icons">forum</span>
-        <span>{{ toast }}</span>
-      </div>
-    </Transition>
   </Teleport>
 </template>
 
@@ -85,7 +78,6 @@ const {
   loadingHistory,
   sending,
   error,
-  toast,
   closePanel,
   sendMessage,
 } = useStaffChat();
@@ -186,12 +178,6 @@ async function onSubmit() {
   }
   .bubble__body {
     font-size: 0.85rem;
-  }
-  .staff-chat-toast {
-    bottom: 24px;
-    right: 72px;
-    left: auto;
-    transform: none;
   }
 }
 
@@ -342,32 +328,6 @@ async function onSubmit() {
   font-size: 0.8rem;
 }
 
-.staff-chat-toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 1000;
-  max-width: min(420px, calc(100vw - 24px));
-  display: flex;
-  gap: 0.45rem;
-  align-items: flex-start;
-  padding: 0.65rem 0.85rem;
-  border-radius: 12px;
-  background: rgba(20, 20, 20, 0.94);
-  border: 1px solid rgba(255, 94, 0, 0.4);
-  color: #f5f5f5;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-}
-
-.staff-chat-toast .material-icons {
-  color: #ff5e00;
-  font-size: 18px;
-  margin-top: 1px;
-}
-
 .staff-chat-sheet-enter-active,
 .staff-chat-sheet-leave-active {
   transition: opacity 0.18s ease;
@@ -384,14 +344,4 @@ async function onSubmit() {
 .staff-chat-sheet-leave-to .staff-chat-panel {
   transform: translateY(24px);
 }
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
 </style>

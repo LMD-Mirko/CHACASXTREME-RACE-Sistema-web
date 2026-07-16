@@ -24,9 +24,11 @@ export async function syncServerClock(fetcher) {
   const t0 = Date.now()
   let data
   try {
-    const res = typeof fetcher === 'function'
-      ? await fetcher()
-      : await fetcher.get('/api/server-time')
+    // axios.create() devuelve una función callable: no usar typeof === 'function'
+    // o termina en api() → GET baseURL (/) y CORS rompe el dashboard.
+    const res = typeof fetcher?.get === 'function'
+      ? await fetcher.get('/api/server-time')
+      : await fetcher('/api/server-time')
     data = res?.data?.data || res?.data || res
   } catch (err) {
     // No tumbar la UI si el backend aún no tiene la ruta o está reiniciando

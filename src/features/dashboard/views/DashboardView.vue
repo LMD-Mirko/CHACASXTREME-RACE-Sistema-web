@@ -23,6 +23,42 @@
       </div>
     </Transition>
 
+    <!-- Notificación chat staff (mismo estilo que pase de lista) -->
+    <Transition name="alert-slide">
+      <div
+        v-if="chatAlert"
+        class="roll-call-toast-container chat-toast-container"
+        role="button"
+        tabindex="0"
+        @click="openChatFromAlert"
+        @keydown.enter.prevent="openChatFromAlert"
+      >
+        <div class="roll-call-toast roll-call-toast--chat">
+          <div class="toast-indicator toast-indicator--chat"></div>
+          <span class="material-icons toast-bell-icon toast-bell-icon--chat">forum</span>
+          <div class="toast-body-content">
+            <span class="toast-header-lbl toast-header-lbl--chat">
+              Chat staff
+              <span v-if="unread > 1" class="chat-toast-count">{{ unread > 99 ? '99+' : unread }}</span>
+            </span>
+            <p class="toast-message-txt">
+              <strong>{{ chatAlert.user?.name || 'Staff' }}</strong>
+              <span v-if="chatAlert.user?.role" class="chat-toast-role"> · {{ chatAlert.user.role }}</span>
+              : {{ chatAlertPreview }}
+            </p>
+          </div>
+          <button
+            class="toast-close-btn"
+            type="button"
+            aria-label="Cerrar"
+            @click.stop="dismissChatAlert"
+          >
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Aviso ADMIN en móvil: menú reducido a gestión -->
     <div v-if="isAdmin && isMobile && showAdminMobileHint" class="admin-mobile-hint fade-in">
       <span class="material-icons">phone_android</span>
@@ -82,14 +118,45 @@ const isMobile = useMediaQuery('(max-width: 1023px)');
 const route = useRoute();
 const router = useRouter();
 const { currentUser, logout } = useAuth();
-const { ensureStaffChatChannel } = useStaffChat();
+const { ensureStaffChatChannel, unread, openPanel } = useStaffChat();
 const showAdminMobileHint = ref(true);
 
 const rollCallAlert = ref('');
 const isRollCallSender = ref(false);
+const chatAlert = ref(null);
 let alertTimeout = null;
+let chatAlertTimeout = null;
 let mountainChannel = null;
 let clockSyncInterval = null;
+
+const chatAlertPreview = computed(() => {
+  const body = String(chatAlert.value?.body || '').trim();
+  if (body.length <= 90) return body;
+  return `${body.slice(0, 90)}…`;
+});
+
+function dismissChatAlert() {
+  chatAlert.value = null;
+  if (chatAlertTimeout) {
+    clearTimeout(chatAlertTimeout);
+    chatAlertTimeout = null;
+  }
+}
+
+function openChatFromAlert() {
+  dismissChatAlert();
+  openPanel();
+}
+
+function onStaffChatMessage(ev) {
+  const msg = ev.detail;
+  if (!msg?.id) return;
+  chatAlert.value = msg;
+  if (chatAlertTimeout) clearTimeout(chatAlertTimeout);
+  chatAlertTimeout = setTimeout(() => {
+    chatAlert.value = null;
+  }, 8000);
+}
 
 const isAdmin = computed(() => {
   return currentUser.value?.role?.toUpperCase() === 'ADMIN';
@@ -155,6 +222,8 @@ onMounted(() => {
 
   // Canal privado del chat (Bearer ya va en Echo)
   ensureStaffChatChannel();
+  window.addEventListener('staff-chat-message', onStaffChatMessage);
+  window.addEventListener('ws-connected', ensureStaffChatChannel);
 
   const onRollCallStarted = (ev) => {
     const e = ev.detail || {};
@@ -185,8 +254,11 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (alertTimeout) clearTimeout(alertTimeout);
+  if (chatAlertTimeout) clearTimeout(chatAlertTimeout);
   if (clockSyncInterval) clearInterval(clockSyncInterval);
   if (mountainChannel?.off) mountainChannel.off();
+  window.removeEventListener('staff-chat-message', onStaffChatMessage);
+  window.removeEventListener('ws-connected', ensureStaffChatChannel);
 });
 </script>
 
@@ -388,6 +460,50 @@ onBeforeUnmount(() => {
 .toast-close-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: #FFFFFF;
+}
+
+.chat-toast-container {
+  top: 24px;
+  cursor: pointer;
+}
+
+.roll-call-toast--chat {
+  border-color: rgba(37, 211, 102, 0.28);
+}
+
+.toast-indicator--chat {
+  background: #25d366 !important;
+  box-shadow: 0 0 8px rgba(37, 211, 102, 0.45);
+}
+
+.toast-bell-icon--chat {
+  color: #25d366 !important;
+}
+
+.toast-header-lbl--chat {
+  color: #25d366 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-toast-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #053b1f;
+  font-size: 10px;
+  font-weight: 900;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+
+.chat-toast-role {
+  opacity: 0.7;
+  font-weight: 600;
 }
 
 /* Estilos para el emisor de la alerta (Partida) */
