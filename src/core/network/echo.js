@@ -18,8 +18,9 @@ function authHeaders() {
 }
 
 /**
- * Reverb / Echo → Cloudflare Tunnel (wss) delante del Reverb del VPS.
- * Bearer Sanctum habilita canales privados (staff chat).
+ * Reverb / Echo → wss delante del Reverb del VPS.
+ * Auth de canales privados vía Bearer Sanctum en /api/broadcasting/auth
+ * (fuera del middleware web/CSRF).
  */
 window.Echo = new Echo({
   broadcaster: 'reverb',
@@ -29,11 +30,11 @@ window.Echo = new Echo({
   wssPort: REVERB_PORT,
   forceTLS: REVERB_FORCE_TLS,
   enabledTransports: REVERB_FORCE_TLS ? ['ws', 'wss'] : ['ws'],
-  authEndpoint: `${BACKEND_API_BASE_URL}/broadcasting/auth`,
+  authEndpoint: `${BACKEND_API_BASE_URL}/api/broadcasting/auth`,
   auth: { headers: authHeaders() },
   authorizer: (channel) => ({
     authorize: (socketId, callback) => {
-      fetch(`${BACKEND_API_BASE_URL}/broadcasting/auth`, {
+      fetch(`${BACKEND_API_BASE_URL}/api/broadcasting/auth`, {
         method: 'POST',
         headers: {
           ...authHeaders(),
