@@ -62,7 +62,7 @@
     <!-- Aviso ADMIN en móvil: menú reducido a gestión -->
     <div v-if="isAdmin && isMobile && showAdminMobileHint" class="admin-mobile-hint fade-in">
       <span class="material-icons">phone_android</span>
-      <p>En el celular solo ves Competidores, Camarógrafos, Posición y Configuración. En laptop tienes el menú completo.</p>
+      <p>En el celular: Corredores, Checkpoint, Chat, Posición y Config. En laptop tienes el menú completo (incl. Camarógrafos).</p>
       <button type="button" class="hint-dismiss" @click="showAdminMobileHint = false">OK</button>
     </div>
 

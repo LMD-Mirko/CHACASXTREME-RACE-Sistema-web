@@ -519,7 +519,7 @@ onBeforeUnmount(() => {
   background: var(--color-input-bg);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 14px;
+  font-size: 16px;
   resize: vertical;
   min-height: 84px;
 }

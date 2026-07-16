@@ -23,6 +23,8 @@
   --color-floating-menu-bg: rgba(255, 255, 255, 0.78);
   --color-floating-menu-border: rgba(255, 255, 255, 0.45);
   --color-floating-menu-shadow: 0 10px 30px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.02);
+  /* Espacio bajo contenido/toasts para no tapar el menú flotante móvil */
+  --mobile-dock-clearance: calc(100px + env(safe-area-inset-bottom, 0px));
 
   /* Countdown Overlay Variables */
   --color-countdown-overlay-bg: rgba(248, 250, 252, 0.95);
@@ -99,6 +101,15 @@ h1, h2, h3, h4, h5, h6 {
 
 input, select, button, textarea {
   font-family: var(--font-family);
+}
+
+/* iOS: inputs menores a 16px provocan zoom al enfocar */
+@media (max-width: 1023px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Base (Móvil): scroll natural, sin bloqueo de viewport — SDD-005 Regla 1 */

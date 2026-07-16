@@ -258,6 +258,13 @@ onMounted(load);
   font-size: 0.85rem;
 }
 
+@media (max-width: 480px) {
+  .search {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));

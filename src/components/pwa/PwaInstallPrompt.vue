@@ -5,6 +5,7 @@
       <div
         v-if="shouldShowPrompt && !guideOpen"
         class="pwa-banner"
+        :class="{ 'pwa-banner--above-dock': aboveMobileDock }"
         role="dialog"
         aria-label="Instalar aplicación"
       >
@@ -182,10 +183,14 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { useMediaQuery } from '@vueuse/core'
 import { usePwaInstall } from '../../core/pwa/usePwaInstall'
 
 const AUTO_KEY = 'pwa_ios_guide_shown'
+const route = useRoute()
+const isMobile = useMediaQuery('(max-width: 1023px)')
 
 const {
   shouldShowPrompt,
@@ -196,6 +201,11 @@ const {
   dismiss,
   promptNativeInstall,
 } = usePwaInstall()
+
+/** En dashboard móvil el banner no debe tapar el menú flotante */
+const aboveMobileDock = computed(
+  () => isMobile.value && String(route.path || '').startsWith('/dashboard')
+)
 
 const guideOpen = ref(false)
 
@@ -231,7 +241,7 @@ onMounted(() => {
   left: 12px;
   right: 12px;
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  z-index: 1100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -241,6 +251,10 @@ onMounted(() => {
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-premium), 0 12px 40px rgba(0, 0, 0, 0.35);
   color: var(--color-text-primary);
+}
+
+.pwa-banner--above-dock {
+  bottom: var(--mobile-dock-clearance);
 }
 
 .pwa-banner__icon {

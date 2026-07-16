@@ -65,9 +65,10 @@ const currentTabComponent = computed(() => {
   flex-direction: column;
   gap: 24px;
   padding: 24px;
-  height: 100%;
+  height: auto;
+  min-height: 100%;
   overflow-x: clip;
-  overflow-y: auto;
+  overflow-y: visible;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -165,8 +166,6 @@ const currentTabComponent = computed(() => {
   .configuracion-view {
     padding: 12px;
     gap: 16px;
-    height: auto;
-    overflow-y: visible;
   }
   
   .tabs-nav {
