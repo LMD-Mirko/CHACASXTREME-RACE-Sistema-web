@@ -53,6 +53,10 @@
     
     <!-- Centro de Notificaciones en Tiempo Real Global -->
     <RealTimeNotificationCenter />
+
+    <!-- Chat en caliente staff (WS privado) -->
+    <StaffChatFab />
+    <StaffChatPanel />
   </div>
 </template>
 
@@ -64,9 +68,12 @@ import { useAuth } from '../../login/hooks/useAuth';
 import AppSidebar from '../components/AppSidebar.vue';
 import AppHeader from '../components/AppHeader.vue';
 import FloatingMobileMenu from '../components/FloatingMobileMenu.vue';
+import StaffChatFab from '../components/StaffChatFab.vue';
+import StaffChatPanel from '../components/StaffChatPanel.vue';
 import RealTimeNotificationCenter from '../../../components/common/RealTimeNotificationCenter.vue';
 import api from '../../../core/network/axios';
 import { syncServerClock } from '../../../core/time/raceTime';
+import { useStaffChat } from '../composables/useStaffChat';
 
 const ADMIN_MOBILE_ALLOWED = ['competidores', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
 
@@ -75,6 +82,7 @@ const isMobile = useMediaQuery('(max-width: 1023px)');
 const route = useRoute();
 const router = useRouter();
 const { currentUser, logout } = useAuth();
+const { ensureStaffChatChannel } = useStaffChat();
 const showAdminMobileHint = ref(true);
 
 const rollCallAlert = ref('');
@@ -144,6 +152,9 @@ onMounted(() => {
 
   syncServerClock(api);
   clockSyncInterval = setInterval(() => syncServerClock(api), 5 * 60 * 1000);
+
+  // Canal privado del chat (Bearer ya va en Echo)
+  ensureStaffChatChannel();
 
   const onRollCallStarted = (ev) => {
     const e = ev.detail || {};

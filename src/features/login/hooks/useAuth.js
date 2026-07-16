@@ -5,8 +5,9 @@ const localToken = localStorage.getItem('auth_token');
 const localRole = localStorage.getItem('user_role');
 
 const user = ref(localToken && localRole ? {
+  id: localStorage.getItem('user_id') ? Number(localStorage.getItem('user_id')) : undefined,
   role: localRole,
-  name: 'Staff ' + localRole.toLowerCase(),
+  name: localStorage.getItem('user_name') || ('Staff ' + localRole.toLowerCase()),
 } : null);
 const token = ref(localToken);
 const isLoading = ref(false);
@@ -25,6 +26,8 @@ export function useAuth() {
       
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('user_role', data.data.role);
+      if (data.data.id != null) localStorage.setItem('user_id', String(data.data.id));
+      if (data.data.name) localStorage.setItem('user_name', data.data.name);
       
       token.value = data.token;
       user.value = {
@@ -42,6 +45,8 @@ export function useAuth() {
       user.value = null;
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('user_name');
       return false;
     } finally {
       isLoading.value = false;
@@ -59,6 +64,8 @@ export function useAuth() {
       user.value = null;
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_role');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('user_name');
       isLoading.value = false;
     }
   };
@@ -68,9 +75,11 @@ export function useAuth() {
     const localRole = localStorage.getItem('user_role');
     if (localToken && localRole && !user.value) {
       token.value = localToken;
+      const idRaw = localStorage.getItem('user_id');
       user.value = {
+        id: idRaw ? Number(idRaw) : undefined,
         role: localRole,
-        name: 'Staff ' + localRole.toLowerCase(),
+        name: localStorage.getItem('user_name') || ('Staff ' + localRole.toLowerCase()),
       };
     }
   };
