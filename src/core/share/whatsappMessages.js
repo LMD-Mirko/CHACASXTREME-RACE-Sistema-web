@@ -59,10 +59,10 @@ export function profileCompleteMessage(fullName, url) {
   const first = firstName(name);
   return (
     `¡Hola ${name}!\n\n` +
-    `Bienvenido/a a Chacas Xtreme Race. Nos alegra tenerte en la carrera.\n\n` +
-    `De paso, entra a tu enlace personal, sube tu foto rider y completa lo que falte en tu ficha:\n` +
+    `Estamos felices de tenerte en la familia Chacas Xtreme Race.\n\n` +
+    `Aquí está tu enlace personal: súbenos tu foto rider, elige tu número de placa y completa lo que falte en tu ficha. Sale en la web oficial y todo el pelotón te va a reconocer en la montaña:\n` +
     `${url}\n\n` +
-    `Cualquier duda, escríbenos. ¡Nos vemos en la montaña, ${first}!`
+    `¡Nos vemos en la carrera, ${first}!`
   );
 }
 

@@ -25,11 +25,12 @@
           type="number"
           v-model="plateInput"
           min="1"
+          max="150"
           step="1"
           required
-          placeholder="Ej. 101"
+          placeholder="Ej. 47"
         />
-        <p class="help-text">Debe ser único. No puede repetirse con otro competidor.</p>
+        <p class="help-text">Rango 1–150. Debe ser único. Úsalo para registros en caliente.</p>
       </div>
 
       <p v-if="localError" class="form-error">{{ localError }}</p>
@@ -86,8 +87,8 @@ watch(
 function handleSubmit() {
   localError.value = '';
   const n = Number(plateInput.value);
-  if (!Number.isInteger(n) || n < 1) {
-    localError.value = 'Ingresa un número de placa válido (entero ≥ 1).';
+  if (!Number.isInteger(n) || n < 1 || n > 150) {
+    localError.value = 'Ingresa un número de placa válido (1–150).';
     return;
   }
   if (hasCurrentPlate.value && n === Number(props.rider.plate_number)) {
