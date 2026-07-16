@@ -1177,10 +1177,12 @@ function formatStartClock(dateTimeStr) {
 /* Toast de Error Premium */
 .error-toast-overlay {
   position: fixed;
-  bottom: 100px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  right: 16px;
   z-index: 100000;
+  display: flex;
+  justify-content: center;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -1193,9 +1195,12 @@ function formatStartClock(dateTimeStr) {
   padding: 12px 20px;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25);
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
   border: 1px solid rgba(255, 255, 255, 0.1);
   max-width: min(92vw, 420px);
+  width: fit-content;
+  box-sizing: border-box;
 }
 
 .error-toast-box--remote {

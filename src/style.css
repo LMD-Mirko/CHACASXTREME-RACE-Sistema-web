@@ -88,7 +88,7 @@
 html {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -109,7 +109,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   transition: background-color 0.3s ease, color 0.3s ease;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: auto;
   min-height: 100vh;
   min-height: 100dvh;
@@ -121,7 +121,7 @@ body {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100%;
 }
 
@@ -201,6 +201,13 @@ body {
 [data-tooltip]:hover::after {
   opacity: 1;
   transform: translate(-50%, 0) scale(1);
+}
+
+/* Tooltips: en móvil no se muestran (evitan desborde por nowrap) */
+@media (max-width: 1023px) {
+  [data-tooltip]::after {
+    display: none !important;
+  }
 }
 
 /* Alineación de tooltips para prevenir desbordes laterales */

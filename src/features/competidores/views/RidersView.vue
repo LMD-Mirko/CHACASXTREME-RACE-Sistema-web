@@ -286,11 +286,14 @@ async function handleDelete(rider) {
 
 .share-toast {
   position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  right: 16px;
   z-index: 1200;
   max-width: min(92vw, 420px);
+  margin: 0 auto;
+  width: fit-content;
+  box-sizing: border-box;
   padding: 12px 16px;
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.96);
@@ -299,7 +302,7 @@ async function handleDelete(rider) {
   font-size: 13px;
   font-weight: 600;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  word-break: break-all;
+  word-break: break-word;
 }
 
 @keyframes spin {

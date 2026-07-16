@@ -272,7 +272,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .dashboard-main {
@@ -291,7 +291,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Área de contenido con scroll propio */
@@ -394,11 +394,12 @@ onBeforeUnmount(() => {
 .roll-call-toast-container {
   position: fixed;
   top: calc(16px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
+  left: 16px;
+  right: 16px;
   z-index: 10000;
-  width: min(90vw, 440px);
-  max-width: calc(100% - 24px);
+  width: auto;
+  max-width: 440px;
+  margin: 0 auto;
   pointer-events: none;
   box-sizing: border-box;
 }

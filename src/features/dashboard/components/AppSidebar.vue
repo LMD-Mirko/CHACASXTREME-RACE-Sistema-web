@@ -51,19 +51,28 @@ defineEmits(['close']);
   top: 0;
   left: 0;
   height: 100%;
-  width: 270px;
+  height: 100dvh;
+  width: min(270px, 86vw);
+  max-width: 100%;
   z-index: 200;
-  transform: translateX(-100%);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s;
+  transform: translateX(-105%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s, visibility 0.4s;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* iOS: paneles off-canvas no deben ensanchar el documento */
+  visibility: hidden;
+  pointer-events: none;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .sidebar--open {
   transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .sidebar-divider {
@@ -92,10 +101,14 @@ defineEmits(['close']);
   .sidebar {
     position: relative;
     transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
     width: 250px;
     height: 100vh;
     flex-shrink: 0;
     box-shadow: var(--shadow-premium);
+    padding-top: 0;
+    padding-bottom: 0;
   }
 }
 </style>

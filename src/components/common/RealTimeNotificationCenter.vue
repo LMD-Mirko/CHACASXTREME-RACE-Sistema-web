@@ -1279,17 +1279,51 @@ onBeforeUnmount(() => {
 
 @media (max-width: 767px) {
   .general-finished-toast,
-  .meta-freezed-toast {
+  .meta-freezed-toast,
+  .race-reset-toast,
+  .sender-pass-toast {
+    top: calc(12px + env(safe-area-inset-top, 0px)) !important;
     bottom: auto !important;
-    top: 12px !important;
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    width: calc(100% - 32px) !important;
-    max-width: 380px !important;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  .admin-finished-drawer {
+    top: auto !important;
+    right: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: min(88dvh, 720px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .plate-number-display {
+    font-size: clamp(40px, 14vw, 64px);
+    max-width: 100%;
+  }
+
+  .rider-full-name {
+    font-size: clamp(18px, 5.5vw, 24px);
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .checkpoint-premium-modal {
+    max-width: 100%;
+  }
+
+  .modal-overlay-glow {
+    padding: 12px;
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
   }
   
-  /* Sobrescribir transiciones en móvil para evitar conflictos con translateX(-50%) y deslizar desde arriba */
+  /* Sobrescribir transiciones en móvil */
   .toast-slide-enter-active {
     animation: slide-in-top-bounce-mobile 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
   }
@@ -1299,13 +1333,13 @@ onBeforeUnmount(() => {
 }
 
 @keyframes slide-in-top-bounce-mobile {
-  from { transform: translateX(-50%) translateY(-50px); opacity: 0; }
-  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+  from { transform: translateY(-50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes slide-out-top-mobile {
-  from { transform: translateX(-50%) translateY(0); opacity: 1; }
-  to { transform: translateX(-50%) translateY(-30px); opacity: 0; }
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-30px); opacity: 0; }
 }
 
 /* ==========================================================================

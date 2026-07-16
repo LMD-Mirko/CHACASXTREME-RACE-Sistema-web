@@ -66,7 +66,12 @@ const currentTabComponent = computed(() => {
   gap: 24px;
   padding: 24px;
   height: 100%;
+  overflow-x: clip;
   overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .config-header {
@@ -87,20 +92,22 @@ const currentTabComponent = computed(() => {
 
 /* Diseño de pestañas tipo cápsula (Pills) */
 .tabs-nav {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
   background: rgba(255, 94, 0, 0.04);
   border: 1px solid var(--color-border);
   padding: 6px;
   border-radius: 16px;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
-  align-self: flex-start;
+  align-self: stretch;
   flex-shrink: 0;
   min-height: 52px;
   align-items: center;
   box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 :global(.dark-theme) .tabs-nav {

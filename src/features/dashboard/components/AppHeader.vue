@@ -104,7 +104,7 @@ const currentSectionName = computed(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: visible;
+  overflow-x: clip;
 }
 
 :global(.dark-theme) .app-header {

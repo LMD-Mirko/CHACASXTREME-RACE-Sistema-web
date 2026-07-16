@@ -550,13 +550,15 @@ onBeforeUnmount(() => {
 /* Estilos Premium del Toast de Llegada */
 .arrival-toast-wrapper {
   position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 16px;
+  right: 16px;
   z-index: 9999;
-  width: 90%;
+  width: auto;
   max-width: 420px;
+  margin: 0 auto;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 .arrival-toast-card {
@@ -630,22 +632,22 @@ onBeforeUnmount(() => {
 
 @keyframes toast-in {
   from {
-    transform: translate(-50%, -40px);
+    transform: translateY(-40px);
     opacity: 0;
   }
   to {
-    transform: translate(-50%, 0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
 @keyframes toast-out {
   from {
-    transform: translate(-50%, 0);
+    transform: translateY(0);
     opacity: 1;
   }
   to {
-    transform: translate(-50%, -30px);
+    transform: translateY(-30px);
     opacity: 0;
   }
 }

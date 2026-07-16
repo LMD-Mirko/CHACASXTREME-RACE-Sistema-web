@@ -297,10 +297,13 @@ function showComingSoonAlert(label) {
 
 .toast-overlay {
   position: fixed;
-  bottom: 100px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  right: 16px;
   z-index: 1000;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -313,12 +316,17 @@ function showComingSoonAlert(label) {
   padding: 10px 16px;
   border-radius: 14px;
   box-shadow: var(--shadow-premium);
-  white-space: nowrap;
+  max-width: 100%;
+  width: fit-content;
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: auto;
 }
 
 .toast-icon {
   font-size: 18px;
   color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 .toast-text {
@@ -328,11 +336,11 @@ function showComingSoonAlert(label) {
 
 @keyframes slideUp {
   from {
-    transform: translate(-50%, 15px);
+    transform: translateY(15px);
     opacity: 0;
   }
   to {
-    transform: translate(-50%, 0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
