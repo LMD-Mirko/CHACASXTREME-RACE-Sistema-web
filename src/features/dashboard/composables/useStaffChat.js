@@ -69,6 +69,16 @@ function playChatPing() {
   }
 }
 
+/** Vibración tipo WhatsApp (solo móviles que lo soporten). */
+function vibratePhone() {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+    navigator.vibrate([90, 50, 90, 50, 140]);
+  } catch {
+    /* ignore — iOS Safari no soporta vibrate */
+  }
+}
+
 function myUserId() {
   return Number(localStorage.getItem('user_id') || 0);
 }
@@ -91,6 +101,7 @@ function onIncoming(payload) {
   bumpUnread();
   latestIncoming.value = msg;
   playChatPing();
+  vibratePhone();
   window.dispatchEvent(new CustomEvent('staff-chat-message', { detail: msg }));
 }
 
