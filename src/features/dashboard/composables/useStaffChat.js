@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import api from '../../core/network/axios.js';
+import api from '../../../core/network/axios.js';
 
 const messages = ref([]);
 const unread = ref(0);
