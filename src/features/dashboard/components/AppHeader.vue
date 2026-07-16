@@ -23,19 +23,6 @@
         <span class="ws-indicator-label">{{ wsStatus === 'connected' ? 'LIVE' : 'SYNC' }}</span>
       </div>
 
-      <button
-        type="button"
-        class="chat-header-btn"
-        :title="panelOpen ? 'Cerrar chat' : 'Chat en caliente'"
-        :aria-label="panelOpen ? 'Cerrar chat staff' : 'Abrir chat staff'"
-        @click="togglePanel"
-      >
-        <span class="material-icons">forum</span>
-        <span v-if="hasUnread && !panelOpen" class="chat-header-btn__badge">
-          {{ unread > 9 ? '9+' : unread }}
-        </span>
-      </button>
-
       <HeaderClock />
       
       <div class="vertical-divider"></div>
@@ -55,7 +42,6 @@ import HeaderThemeToggle from './header/HeaderThemeToggle.vue';
 import HeaderUserAvatar from './header/HeaderUserAvatar.vue';
 import { useRiders } from '../../competidores/composables/useRiders';
 import { wsStatus } from '../../../core/network/wsStatus';
-import { useStaffChat } from '../composables/useStaffChat';
 
 defineProps({
   showHamburger: {
@@ -68,7 +54,6 @@ defineEmits(['toggle-sidebar']);
 
 const route = useRoute();
 const { filters, categories } = useRiders();
-const { unread, hasUnread, panelOpen, togglePanel } = useStaffChat();
 
 // Mapeo oficial de nombres para la sección del header
 const SECTION_NAMES = {
@@ -150,54 +135,6 @@ const currentSectionName = computed(() => {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: rgba(255, 94, 0, 0.05);
-}
-
-.chat-header-btn {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.chat-header-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: rgba(255, 94, 0, 0.05);
-}
-
-.chat-header-btn .material-icons {
-  font-size: 20px;
-}
-
-.chat-header-btn__badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #22a05a;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  display: grid;
-  place-items: center;
-  border: 2px solid var(--color-surface, #141414);
-}
-
-@media (min-width: 1024px) {
-  .chat-header-btn {
-    display: inline-flex;
-  }
 }
 
 /* Breadcrumb minimalista */

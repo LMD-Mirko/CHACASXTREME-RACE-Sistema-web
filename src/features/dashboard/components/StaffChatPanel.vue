@@ -134,7 +134,7 @@ async function onSubmit() {
 .staff-chat-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 85;
+  z-index: 1100;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: flex-end;
@@ -156,17 +156,42 @@ async function onSubmit() {
 
 @media (min-width: 1024px) {
   .staff-chat-backdrop {
-    align-items: flex-end;
-    justify-content: flex-end;
-    padding: 0 20px 20px 0;
+    inset: auto;
+    right: 18px;
+    bottom: 72px;
+    width: 340px;
+    height: 420px;
+    max-height: calc(100vh - 96px);
     background: transparent;
     pointer-events: none;
+    display: block;
   }
   .staff-chat-panel {
     pointer-events: auto;
-    height: min(62vh, 560px);
-    border-radius: 16px;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 14px;
     border: 1px solid var(--color-border, #333);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  }
+  .staff-chat-panel__head {
+    padding: 0.7rem 0.8rem 0.55rem;
+  }
+  .staff-chat-panel__head h2 {
+    font-size: 0.95rem;
+  }
+  .staff-chat-panel__list {
+    padding: 0.65rem 0.75rem;
+  }
+  .bubble__body {
+    font-size: 0.85rem;
+  }
+  .staff-chat-toast {
+    bottom: 24px;
+    right: 72px;
+    left: auto;
+    transform: none;
   }
 }
 
@@ -322,7 +347,7 @@ async function onSubmit() {
   left: 50%;
   bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
-  z-index: 86;
+  z-index: 1000;
   max-width: min(420px, calc(100vw - 24px));
   display: flex;
   gap: 0.45rem;
@@ -369,12 +394,4 @@ async function onSubmit() {
   opacity: 0;
 }
 
-@media (min-width: 1024px) {
-  .staff-chat-toast {
-    bottom: 24px;
-    right: 24px;
-    left: auto;
-    transform: none;
-  }
-}
 </style>

@@ -1,13 +1,26 @@
 <template>
-  <div 
+  <div
     class="floating-menu-container"
     :class="{ 'floating-menu-container--hidden': isKeyboardOpen }"
   >
     <nav class="floating-menu-bar">
       <template v-for="item in menuItems" :key="item.name">
-        <!-- Item Normal -->
+        <button
+          v-if="item.action === 'chat'"
+          type="button"
+          class="menu-item"
+          :class="{ 'menu-item--active': panelOpen }"
+          @click="togglePanel"
+        >
+          <span class="material-icons menu-icon">forum</span>
+          <span class="menu-label">{{ item.label }}</span>
+          <span v-if="hasUnread && !panelOpen" class="chat-badge">
+            {{ unread > 9 ? '9+' : unread }}
+          </span>
+        </button>
+
         <router-link
-          v-if="!item.disabled"
+          v-else-if="!item.disabled"
           :to="item.path"
           class="menu-item"
           active-class="menu-item--active"
@@ -16,12 +29,11 @@
           <span class="menu-label">{{ item.label }}</span>
         </router-link>
 
-        <!-- Item Deshabilitado / Próximamente -->
         <button
           v-else
-          @click="showComingSoonAlert(item.label)"
-          class="menu-item menu-item--disabled"
           type="button"
+          class="menu-item menu-item--disabled"
+          @click="showComingSoonAlert(item.label)"
         >
           <span class="material-icons menu-icon">{{ item.icon }}</span>
           <span class="menu-label">{{ item.label }}</span>
@@ -30,7 +42,6 @@
       </template>
     </nav>
 
-    <!-- Modal/Toast flotante de Próximamente -->
     <Transition name="fade">
       <div v-if="toastMessage" class="toast-overlay">
         <div class="toast-box">
@@ -45,23 +56,24 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useAuth } from '../../login/hooks/useAuth';
+import { useStaffChat } from '../composables/useStaffChat';
 
 const { currentUser } = useAuth();
+const { unread, hasUnread, panelOpen, togglePanel } = useStaffChat();
 const toastMessage = ref('');
 const isKeyboardOpen = ref(false);
 let toastTimeout = null;
 let initialHeight = window.innerHeight;
 
-// Detectar teclado abierto mediante foco en inputs
 function handleFocusIn(e) {
   const target = e.target;
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+    if (target.closest?.('.staff-chat-panel')) return;
     isKeyboardOpen.value = true;
   }
 }
 
 function handleFocusOut() {
-  // Pequeño timeout para evitar rebotes visuales rápidos
   setTimeout(() => {
     const activeEl = document.activeElement;
     if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
@@ -70,15 +82,18 @@ function handleFocusOut() {
   }, 100);
 }
 
-// Respaldo para detectar si el viewport cambia de tamaño (característico de Android al abrir teclado)
 function handleResize() {
   if (window.innerHeight < initialHeight - 120) {
-    isKeyboardOpen.value = true;
-  } else {
-    // Si regresa a tamaño completo
-    if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+    if (document.activeElement?.closest?.('.staff-chat-panel')) {
       isKeyboardOpen.value = false;
+      return;
     }
+    isKeyboardOpen.value = true;
+  } else if (
+    document.activeElement?.tagName !== 'INPUT'
+    && document.activeElement?.tagName !== 'TEXTAREA'
+  ) {
+    isKeyboardOpen.value = false;
   }
 }
 
@@ -98,6 +113,7 @@ onBeforeUnmount(() => {
 const role = computed(() => currentUser.value?.role?.toUpperCase() || '');
 
 const menuItems = computed(() => {
+  const chat = { name: 'chat', action: 'chat', icon: 'forum', label: 'Chat' };
   const allItems = {
     partida: { name: 'partida', path: '/dashboard/partida', icon: 'flag', label: 'Partida' },
     categorias: { name: 'categorias', path: '/dashboard/categorias-explorer', icon: 'grid_view', label: 'Categorías' },
@@ -107,21 +123,23 @@ const menuItems = computed(() => {
     configuracion: { name: 'configuracion', path: '/dashboard/configuracion', icon: 'settings', label: 'Config' },
     checkpoint: { name: 'checkpoint', path: '/dashboard/checkpoint', icon: 'location_on', label: 'Checkpoint' },
     meta: { name: 'meta', path: '/dashboard/meta', icon: 'emoji_events', label: 'Meta' },
-    confirmacion: { name: 'confirmacion', path: '/dashboard/confirmacion', icon: 'assignment_turned_in', label: 'Confirmar' }
+    confirmacion: { name: 'confirmacion', path: '/dashboard/confirmacion', icon: 'assignment_turned_in', label: 'Confirmar' },
   };
 
   if (role.value === 'PARTIDA') {
-    return [allItems.partida, allItems.categorias, allItems.competidores, allItems.posicion];
-  } else if (role.value === 'INTERMEDIO') {
-    return [allItems.checkpoint, allItems.categorias, allItems.competidores, allItems.posicion];
-  } else if (role.value === 'META') {
-    return [allItems.meta, allItems.confirmacion, allItems.categorias, allItems.posicion];
-  } else if (role.value === 'ADMIN') {
-    // Teléfono: gestión + checkpoint (para probar mesa Intermedio). Laptop: sidebar completo.
+    return [allItems.partida, allItems.categorias, allItems.competidores, chat, allItems.posicion];
+  }
+  if (role.value === 'INTERMEDIO') {
+    return [allItems.checkpoint, allItems.categorias, allItems.competidores, chat, allItems.posicion];
+  }
+  if (role.value === 'META') {
+    return [allItems.meta, allItems.confirmacion, allItems.categorias, chat, allItems.posicion];
+  }
+  if (role.value === 'ADMIN') {
     return [
       allItems.competidores,
       allItems.checkpoint,
-      allItems.camarografos,
+      chat,
       allItems.posicion,
       allItems.configuracion,
     ];
@@ -129,7 +147,7 @@ const menuItems = computed(() => {
 
   return [
     allItems.competidores,
-    allItems.camarografos,
+    chat,
     allItems.posicion,
     allItems.configuracion,
   ];
@@ -145,29 +163,26 @@ function showComingSoonAlert(label) {
 </script>
 
 <style scoped>
-/* Contenedor flotante en la parte inferior */
 .floating-menu-container {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  max-width: 420px;
+  max-width: 480px;
   z-index: 999;
-  pointer-events: none; /* Deja pasar clicks fuera del menú */
+  pointer-events: none;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
 }
 
-/* Ocultar el menú deslizándose hacia abajo cuando el teclado está abierto */
 .floating-menu-container--hidden {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 100px) scale(0.95);
 }
 
-/* Barra con efecto glassmorphic ultra premium */
 .floating-menu-bar {
-  pointer-events: auto; /* Habilita clicks dentro de la barra */
+  pointer-events: auto;
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -176,12 +191,10 @@ function showComingSoonAlert(label) {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--color-floating-menu-border);
   border-radius: 24px;
-  padding: 10px 14px;
+  padding: 10px 10px;
   box-shadow: var(--color-floating-menu-shadow);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Botones / Enlaces del menú */
 .menu-item {
   flex: 1;
   display: flex;
@@ -212,10 +225,8 @@ function showComingSoonAlert(label) {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  transition: color 0.2s ease;
 }
 
-/* Hover e interacciones */
 .menu-item:hover:not(.menu-item--disabled) {
   color: var(--color-primary);
 }
@@ -224,7 +235,6 @@ function showComingSoonAlert(label) {
   transform: scale(0.85);
 }
 
-/* Estado Activo (Ruta actual) */
 .menu-item--active {
   color: var(--color-primary) !important;
 }
@@ -234,10 +244,27 @@ function showComingSoonAlert(label) {
   text-shadow: 0 2px 10px rgba(255, 94, 0, 0.2);
 }
 
-/* Item deshabilitado */
 .menu-item--disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.chat-badge {
+  position: absolute;
+  top: 2px;
+  right: 50%;
+  transform: translateX(110%);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #22a05a;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  line-height: 1;
 }
 
 .soon-badge {
@@ -253,10 +280,8 @@ function showComingSoonAlert(label) {
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  box-shadow: 0 2px 4px rgba(255, 94, 0, 0.2);
 }
 
-/* Toast/Alerts */
 .toast-overlay {
   position: fixed;
   bottom: 100px;
@@ -288,7 +313,6 @@ function showComingSoonAlert(label) {
   font-weight: 700;
 }
 
-/* Keyframes */
 @keyframes slideUp {
   from {
     transform: translate(-50%, 15px);
