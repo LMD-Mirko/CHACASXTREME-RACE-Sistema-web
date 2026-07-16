@@ -10,6 +10,7 @@
           class="staff-chat-panel"
           role="dialog"
           aria-label="Chat staff en caliente"
+          :style="panelStyle"
           @click.stop
         >
           <header class="staff-chat-panel__head">
@@ -67,7 +68,7 @@
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useAuth } from '../../login/hooks/useAuth';
 import { useStaffChat } from '../composables/useStaffChat';
 
@@ -84,6 +85,43 @@ const {
 
 const draft = ref('');
 const listRef = ref(null);
+const keyboardOffset = ref(0);
+
+function updateKeyboardOffset() {
+  if (typeof window === 'undefined' || !window.visualViewport) {
+    keyboardOffset.value = 0;
+    return;
+  }
+  // Solo en sheet móvil: el teclado iOS reduce visualViewport
+  if (window.matchMedia('(min-width: 1024px)').matches) {
+    keyboardOffset.value = 0;
+    return;
+  }
+  const vv = window.visualViewport;
+  keyboardOffset.value = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+}
+
+const panelStyle = computed(() => {
+  if (keyboardOffset.value <= 0) return undefined;
+  return {
+    marginBottom: `${keyboardOffset.value}px`,
+    maxHeight: `calc(100dvh - 24px - ${keyboardOffset.value}px)`,
+  };
+});
+
+onMounted(() => {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  vv.addEventListener('resize', updateKeyboardOffset);
+  vv.addEventListener('scroll', updateKeyboardOffset);
+});
+
+onBeforeUnmount(() => {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  vv.removeEventListener('resize', updateKeyboardOffset);
+  vv.removeEventListener('scroll', updateKeyboardOffset);
+});
 
 function isMine(msg) {
   return Number(msg?.user?.id) === Number(currentUser.value?.id);
@@ -297,7 +335,8 @@ async function onSubmit() {
   color: var(--color-text-primary, #eee);
   border-radius: 12px;
   padding: 0.7rem 0.85rem;
-  font-size: 0.95rem;
+  /* 16px evita zoom automático de iOS al enfocar */
+  font-size: 16px;
 }
 
 .send-btn {

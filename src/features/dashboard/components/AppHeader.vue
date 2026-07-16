@@ -61,12 +61,26 @@ const SECTION_NAMES = {
   partida: 'Control de Partida',
   checkpoint: 'Checkpoint de Ruta',
   meta: 'Meta y Cronometraje',
+  confirmacion: 'Confirmación Meta',
   competidores: 'Competidores',
   camarografos: 'Camarógrafos',
   dashboard: 'Dashboard',
   chat: 'Chat',
   posicion: 'Posición',
   configuracion: 'Configuración',
+};
+
+const SECTION_NAMES_MOBILE = {
+  partida: 'Partida',
+  checkpoint: 'Checkpoint',
+  meta: 'Meta',
+  confirmacion: 'Confirmar',
+  competidores: 'Competidores',
+  camarografos: 'Cámaras',
+  dashboard: 'Dashboard',
+  chat: 'Chat',
+  posicion: 'Posición',
+  configuracion: 'Config',
 };
 
 const currentSectionName = computed(() => {
@@ -77,7 +91,8 @@ const currentSectionName = computed(() => {
     const catLabel = selectedCat ? selectedCat.name : 'Todas las categorías';
     return `Competidores: ${catLabel}`;
   }
-  return SECTION_NAMES[route.name] ?? 'Dashboard';
+  const map = isNarrow.value ? SECTION_NAMES_MOBILE : SECTION_NAMES;
+  return map[route.name] ?? 'Dashboard';
 });
 </script>
 
@@ -183,7 +198,7 @@ const currentSectionName = computed(() => {
 @media (min-width: 1024px) {
   .app-header {
     min-height: 64px;
-    padding: 0 28px;
+    padding: 0 max(28px, env(safe-area-inset-right, 0px)) 0 max(28px, env(safe-area-inset-left, 0px));
   }
 
   .btn-hamburger {

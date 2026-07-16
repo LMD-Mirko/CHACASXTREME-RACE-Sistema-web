@@ -225,6 +225,8 @@ defineEmits(['update:isGridConfirmed', 'launch']);
   .partida-trigger-sticky-footer {
     padding: 10px 12px;
     margin-top: 12px;
+    /* Deja espacio libre sobre el menú flotante + home indicator */
+    margin-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
     border-top-width: 2px;
     border-radius: 14px;
   }

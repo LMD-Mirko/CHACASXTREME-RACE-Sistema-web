@@ -228,6 +228,18 @@ function showComingSoonAlert(label) {
   letter-spacing: 0.2px;
 }
 
+/* iPhone SE / pantallas muy estrechas: icon-first para no aplastar labels */
+@media (max-width: 360px) {
+  .menu-label {
+    display: none;
+  }
+
+  .menu-item {
+    min-height: 44px;
+    padding: 10px 0;
+  }
+}
+
 .menu-item:hover:not(.menu-item--disabled) {
   color: var(--color-primary);
 }

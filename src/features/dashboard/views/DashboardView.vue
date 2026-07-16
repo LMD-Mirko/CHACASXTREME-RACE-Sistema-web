@@ -481,7 +481,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-toast-container {
-  top: 24px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
   cursor: pointer;
 }
 

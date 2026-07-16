@@ -163,8 +163,10 @@ const currentTabComponent = computed(() => {
 /* Adaptación responsiva */
 @media (max-width: 600px) {
   .configuracion-view {
-    padding: 16px;
+    padding: 12px;
     gap: 16px;
+    height: auto;
+    overflow-y: visible;
   }
   
   .tabs-nav {

@@ -1139,6 +1139,7 @@ function getFormattedGap(rider) {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .footer-lbl {
@@ -1150,6 +1151,21 @@ function getFormattedGap(rider) {
 
 .footer-val {
   font-size: 12.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 375px) {
+  .footer-val {
+    font-size: 11px;
+  }
+
+  .footer-lbl {
+    font-size: 9px;
+  }
 }
 
 /* Card custom podium styles */

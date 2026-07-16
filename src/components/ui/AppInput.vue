@@ -60,7 +60,7 @@ defineEmits(['update:modelValue']);
   border-radius: 12px;
   background: var(--color-input-bg);
   color: var(--color-text-primary);
-  font-size: 15px;
+  font-size: 16px;
   outline: none;
   transition: all 0.2s ease;
 }

@@ -219,7 +219,7 @@ const submitLogin = async () => {
   border: 1px solid var(--color-border);
   background-color: var(--color-input-bg);
   color: var(--color-text-primary);
-  font-size: 15px;
+  font-size: 16px;
   outline: none;
   transition: all 0.3s;
 }

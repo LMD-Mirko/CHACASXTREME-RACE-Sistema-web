@@ -28,7 +28,7 @@ const { unreadLabel, hasUnread, panelOpen, togglePanel } = useStaffChat();
 .staff-chat-fab {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   z-index: 88;
   width: 48px;
   height: 48px;

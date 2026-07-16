@@ -25,23 +25,26 @@
       <button
         class="switch-tab-btn"
         :class="{ 'switch-tab-btn--active': activeTab === 'queue' }"
+        :aria-label="`Tiempos en cola (${finishTimeQueue.length})`"
         @click="activeTab = 'queue'"
       >
-        Tiempos ({{ finishTimeQueue.length }})
+        Cola ({{ finishTimeQueue.length }})
       </button>
       <button
         class="switch-tab-btn"
         :class="{ 'switch-tab-btn--active': activeTab === 'runners' }"
+        :aria-label="`En carrera (${ridersInRace.length})`"
         @click="activeTab = 'runners'"
       >
-        En Carrera ({{ ridersInRace.length }})
+        Pista ({{ ridersInRace.length }})
       </button>
       <button
         class="switch-tab-btn"
         :class="{ 'switch-tab-btn--active': activeTab === 'arrived' }"
+        :aria-label="`Ya llegaron (${ridersArrived.length})`"
         @click="activeTab = 'arrived'"
       >
-        Llegaron ({{ ridersArrived.length }})
+        Meta ({{ ridersArrived.length }})
       </button>
     </div>
 
@@ -390,11 +393,16 @@ onBeforeUnmount(() => {
 .confirmador-root {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px);
   gap: 12px;
+  min-height: 0;
+  /* Header (~56 + safe) + dock flotante (~112 + safe) */
+  height: calc(
+    100dvh - 56px - env(safe-area-inset-top, 0px)
+    - 112px - env(safe-area-inset-bottom, 0px)
+  );
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .confirmador-root {
     height: 100%;
   }
@@ -410,6 +418,7 @@ onBeforeUnmount(() => {
   gap: 20px;
   justify-content: space-between;
   box-shadow: var(--shadow-premium);
+  flex-shrink: 0;
 }
 
 .telemetry-item {
@@ -417,6 +426,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  min-width: 0;
 }
 
 .telemetry-lbl {
@@ -431,6 +441,26 @@ onBeforeUnmount(() => {
   font-size: 13.5px;
   font-weight: 800;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .telemetry-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding: 10px 12px;
+  }
+
+  .telemetry-lbl {
+    font-size: 10px;
+  }
+
+  .telemetry-val {
+    font-size: 12.5px;
+  }
 }
 
 .highlight-phase {
@@ -460,16 +490,21 @@ onBeforeUnmount(() => {
 
 .switch-tab-btn {
   flex: 1;
+  min-width: 0;
   height: 38px;
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   border-radius: 7px;
   cursor: pointer;
   font-family: var(--font-family);
   transition: all 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
 }
 
 .switch-tab-btn--active {

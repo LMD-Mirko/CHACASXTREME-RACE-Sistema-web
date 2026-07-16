@@ -286,7 +286,7 @@ async function handleDelete(rider) {
 
 .share-toast {
   position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   left: 16px;
   right: 16px;
   z-index: 1200;

@@ -357,6 +357,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  min-width: 0;
 }
 
 .telemetry-lbl {
@@ -371,6 +372,26 @@ onBeforeUnmount(() => {
   font-size: 13.5px;
   font-weight: 800;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .telemetry-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding: 10px 12px;
+  }
+
+  .telemetry-lbl {
+    font-size: 10px;
+  }
+
+  .telemetry-val {
+    font-size: 12.5px;
+  }
 }
 
 .highlight-phase {

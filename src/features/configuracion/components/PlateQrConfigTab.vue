@@ -216,6 +216,13 @@ onMounted(load);
   flex: 1;
 }
 
+@media (max-width: 480px) {
+  .form-group {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 .form-group > label {
   font-size: 12.5px;
   font-weight: 600;
