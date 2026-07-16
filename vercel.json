@@ -2,15 +2,15 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://shuttle-out-distributor-decision.trycloudflare.com/api/:path*"
+      "destination": "https://api.mankariders.xyz/api/:path*"
     },
     {
       "source": "/storage/:path*",
-      "destination": "https://shuttle-out-distributor-decision.trycloudflare.com/storage/:path*"
+      "destination": "https://api.mankariders.xyz/storage/:path*"
     },
     {
       "source": "/broadcasting/:path*",
-      "destination": "https://shuttle-out-distributor-decision.trycloudflare.com/broadcasting/:path*"
+      "destination": "https://api.mankariders.xyz/broadcasting/:path*"
     },
     {
       "source": "/(.*)",
