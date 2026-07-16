@@ -103,32 +103,29 @@ const handleLogout = async () => {
   box-shadow: 0 4px 12px rgba(255, 94, 0, 0.3);
 }
 
-/* Dropdown flotante premium */
+/* Dropdown flotante premium — usa tokens del tema (evita nombre blanco sobre fondo blanco) */
 .dropdown-menu {
   position: absolute;
   top: 48px;
   right: 0;
   width: 200px;
-  background: rgba(255, 255, 255, 0.95);
+  max-width: min(200px, calc(100vw - 24px));
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   backdrop-filter: blur(12px);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-premium);
   z-index: 100;
   padding: 8px;
   transform-origin: top right;
-}
-
-:global(.dark-theme) .dropdown-menu {
-  background: rgba(15, 15, 15, 0.95);
-  border-color: rgba(255, 94, 0, 0.15);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
 }
 
 .dropdown-header {
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .user-name {
