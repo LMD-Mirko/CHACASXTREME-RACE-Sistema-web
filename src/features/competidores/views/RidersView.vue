@@ -243,10 +243,16 @@ async function handleDelete(rider) {
 .view-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .content-layout {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .loading-state {

@@ -269,6 +269,10 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--color-background);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .dashboard-main {
@@ -279,24 +283,33 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   width: 100%;
+  max-width: 100%;
 }
 
 /* Margen adicional en móvil para evitar tapado por la barra flotante */
 .dashboard-main--mobile {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Área de contenido con scroll propio */
 .dashboard-content {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   padding: 20px 16px;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
 }
 
 .dashboard-content--mobile {
-  padding-bottom: 96px; /* Espacio extra para el menú flotante bottom */
+  /* Menú flotante (~72px) + margen + home indicator iPhone */
+  padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
 }
 
 /* === Aviso ADMIN en móvil (no bloquea) === */
@@ -312,6 +325,9 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(255, 94, 0, 0.35);
   color: var(--color-text-primary);
   font-size: 13px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .admin-mobile-hint .material-icons {
@@ -377,13 +393,14 @@ onBeforeUnmount(() => {
 /* Alerta Flotante Global Minimalista y Profesional */
 .roll-call-toast-container {
   position: fixed;
-  top: 24px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 10000;
-  width: 90%;
-  max-width: 440px;
+  width: min(90vw, 440px);
+  max-width: calc(100% - 24px);
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 .roll-call-toast {

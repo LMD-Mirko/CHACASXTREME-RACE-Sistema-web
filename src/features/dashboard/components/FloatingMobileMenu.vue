@@ -165,14 +165,15 @@ function showComingSoonAlert(label) {
 <style scoped>
 .floating-menu-container {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
+  width: min(90%, calc(100% - 24px));
   max-width: 480px;
   z-index: 999;
   pointer-events: none;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  box-sizing: border-box;
 }
 
 .floating-menu-container--hidden {

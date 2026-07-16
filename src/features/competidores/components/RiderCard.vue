@@ -180,6 +180,11 @@ function getInitials(name) {
   gap: 12px;
   box-shadow: var(--shadow-premium);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .rider-card:hover {

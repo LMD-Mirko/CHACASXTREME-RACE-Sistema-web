@@ -52,6 +52,24 @@ const toggleTheme = () => {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
+@media (max-width: 1023px) {
+  .theme-pill {
+    width: 52px;
+    height: 28px;
+    padding: 0 4px;
+  }
+  .pill-ball {
+    width: 20px;
+    height: 20px;
+  }
+  .theme-pill--dark .pill-ball {
+    transform: translateX(24px);
+  }
+  .pill-icon {
+    font-size: 12px;
+  }
+}
+
 .theme-pill--dark {
   background: rgba(255, 94, 0, 0.12);
   border-color: rgba(255, 94, 0, 0.35);

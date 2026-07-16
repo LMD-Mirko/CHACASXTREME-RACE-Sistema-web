@@ -24,11 +24,11 @@
       </div>
 
       <HeaderClock />
-      
+
       <div class="vertical-divider"></div>
-      
+
       <HeaderThemeToggle />
-      
+
       <HeaderUserAvatar />
     </div>
   </header>
@@ -37,6 +37,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useMediaQuery } from '@vueuse/core';
 import HeaderClock from './header/HeaderClock.vue';
 import HeaderThemeToggle from './header/HeaderThemeToggle.vue';
 import HeaderUserAvatar from './header/HeaderUserAvatar.vue';
@@ -53,20 +54,25 @@ defineProps({
 defineEmits(['toggle-sidebar']);
 
 const route = useRoute();
+const isNarrow = useMediaQuery('(max-width: 1023px)');
 const { filters, categories } = useRiders();
 
-// Mapeo oficial de nombres para la sección del header
 const SECTION_NAMES = {
-  partida:      'Control de Partida',
-  checkpoint:   'Checkpoint de Ruta',
-  meta:         'Meta y Cronometraje',
+  partida: 'Control de Partida',
+  checkpoint: 'Checkpoint de Ruta',
+  meta: 'Meta y Cronometraje',
   competidores: 'Competidores',
   camarografos: 'Camarógrafos',
-  dashboard:    'Dashboard',
+  dashboard: 'Dashboard',
+  chat: 'Chat',
+  posicion: 'Posición',
+  configuracion: 'Configuración',
 };
 
 const currentSectionName = computed(() => {
   if (route.name === 'competidores') {
+    // En móvil el título largo empuja el avatar fuera de pantalla
+    if (isNarrow.value) return 'Competidores';
     const selectedCat = categories.value.find(c => String(c.id) === String(filters.category_id));
     const catLabel = selectedCat ? selectedCat.name : 'Todas las categorías';
     return `Competidores: ${catLabel}`;
@@ -76,14 +82,16 @@ const currentSectionName = computed(() => {
 </script>
 
 <style scoped>
-/* === BASE: MÓVIL — Header compacto con efecto glassmorphism premium === */
+/* === BASE: MÓVIL — Header compacto + safe-area iPhone === */
 .app-header {
-  height: 60px;
+  /* Extiende el fondo bajo el notch; el contenido queda debajo del status bar */
+  min-height: 56px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  gap: 12px;
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px));
+  gap: 8px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -93,6 +101,10 @@ const currentSectionName = computed(() => {
   border-bottom: 1px solid var(--color-border);
   box-shadow: 0 1px 0 rgba(255, 94, 0, 0.05), 0 4px 20px rgba(0, 0, 0, 0.02);
   transition: background-color 0.3s, border-color 0.3s;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
 }
 
 :global(.dark-theme) .app-header {
@@ -100,11 +112,21 @@ const currentSectionName = computed(() => {
   box-shadow: 0 1px 0 rgba(255, 94, 0, 0.1), 0 4px 24px rgba(0, 0, 0, 0.25);
 }
 
-.header-left,
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .vertical-divider {
@@ -114,7 +136,6 @@ const currentSectionName = computed(() => {
   background: var(--color-border);
 }
 
-/* Botón hamburguesa táctil de 40px con hover (zona clicable expandida a 48px con padding si es necesario) */
 .btn-hamburger {
   width: 40px;
   height: 40px;
@@ -129,6 +150,7 @@ const currentSectionName = computed(() => {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
   touch-action: manipulation;
+  flex-shrink: 0;
 }
 
 .btn-hamburger:hover {
@@ -137,11 +159,13 @@ const currentSectionName = computed(() => {
   background: rgba(255, 94, 0, 0.05);
 }
 
-/* Breadcrumb minimalista */
 .header-title {
   display: flex;
   align-items: center;
   font-family: var(--font-family);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .section-label {
@@ -152,33 +176,33 @@ const currentSectionName = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
 }
 
-/* === DESKTOP (min-width: 1024px) — Espaciado expandido y divisiones === */
 @media (min-width: 1024px) {
   .app-header {
-    height: 64px;
+    min-height: 64px;
     padding: 0 28px;
   }
-  
+
   .btn-hamburger {
     display: none;
   }
-  
+
   .vertical-divider {
     display: block;
   }
-  
+
   .header-right {
     gap: 16px;
   }
-  
+
   .section-label {
     font-size: 16px;
   }
 }
 
-/* Indicador de WebSocket */
 .ws-indicator {
   display: inline-flex;
   align-items: center;
@@ -190,6 +214,7 @@ const currentSectionName = computed(() => {
   font-size: 11px;
   font-weight: 800;
   color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
 .ws-indicator-dot {
@@ -233,12 +258,22 @@ const currentSectionName = computed(() => {
   to { transform: scale(1.1); opacity: 1; }
 }
 
-@media (max-width: 600px) {
+/* iPhone 11 / pantas estrechas: solo punto LIVE + tema + avatar */
+@media (max-width: 1023px) {
   .ws-indicator-label {
     display: none;
   }
   .ws-indicator {
     padding: 6px;
+  }
+  .header-right {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 380px) {
+  .section-label {
+    font-size: 13px;
   }
 }
 </style>
