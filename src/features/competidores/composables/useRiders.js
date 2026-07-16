@@ -1,5 +1,5 @@
 import { ref, reactive, watch } from 'vue';
-import { getRiders, createRider, updateRider, updateRiderStatus, retireRider, revertRetireRider, deleteRider, assignRiderPlate, issueRiderProfileLink, issueRiderDossierLink } from '../services/riderService';
+import { getRiders, createRider, updateRider, updateRiderStatus, retireRider, revertRetireRider, deleteRider, assignRiderPlate, issueRiderProfileLink, issueRiderDossierLink, markRiderProfileLinkSent, markRiderDossierLinkSent } from '../services/riderService';
 import { getCategories } from '../services/categoryService';
 
 // Estado reactivo global único (Singleton) para compartir entre el Header y la Vista
@@ -147,6 +147,38 @@ export function useRiders() {
     }
   }
 
+  function patchRider(riderId, fields) {
+    const idx = riders.value.findIndex((r) => r.id === riderId);
+    if (idx === -1) return;
+    riders.value[idx] = { ...riders.value[idx], ...fields };
+  }
+
+  async function markProfileLinkSent(riderId) {
+    try {
+      const data = await markRiderProfileLinkSent(riderId);
+      if (data?.profile_link_sent_at) {
+        patchRider(riderId, { profile_link_sent_at: data.profile_link_sent_at });
+      }
+      return true;
+    } catch (error) {
+      errorMessage.value = error.friendlyMessage || 'No se pudo registrar el envío de ficha.';
+      return false;
+    }
+  }
+
+  async function markDossierLinkSent(riderId) {
+    try {
+      const data = await markRiderDossierLinkSent(riderId);
+      if (data?.dossier_link_sent_at) {
+        patchRider(riderId, { dossier_link_sent_at: data.dossier_link_sent_at });
+      }
+      return true;
+    } catch (error) {
+      errorMessage.value = error.friendlyMessage || 'No se pudo registrar el envío de Mi carrera.';
+      return false;
+    }
+  }
+
   // Elimina un piloto del sistema
   async function removeRider(riderId) {
     isLoading.value = true;
@@ -186,6 +218,8 @@ export function useRiders() {
     assignPlate,
     getProfileLink,
     getDossierLink,
+    markProfileLinkSent,
+    markDossierLinkSent,
     removeRider,
   };
 }

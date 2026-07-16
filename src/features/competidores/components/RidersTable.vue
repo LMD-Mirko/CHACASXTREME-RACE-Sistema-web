@@ -39,6 +39,12 @@
           <span class="full-name">{{ item.full_name }}</span>
           <span class="nickname" v-if="item.nickname">"{{ item.nickname }}"</span>
           <span v-if="item.profile_incomplete" class="incomplete-pill">Ficha incompleta</span>
+          <span v-if="item.profile_link_sent_at" class="sent-pill" title="Enlace de ficha ya compartido">
+            Ficha enviada
+          </span>
+          <span v-if="item.dossier_link_sent_at" class="sent-pill" title="Enlace Mi carrera ya compartido">
+            Mi carrera enviada
+          </span>
         </div>
       </template>
 
@@ -104,16 +110,20 @@
             title="Completar ficha"
             ariaLabel="Compartir enlace completar ficha"
             trigger-icon="link"
+            :sent="!!item.profile_link_sent_at"
             :load-link="() => loadProfileLink(item)"
             @copied="$emit('link-copied', $event)"
+            @sent="$emit('profile-link-sent', item)"
           />
 
           <ShareLinkPopover
             title="Mi carrera"
             ariaLabel="Compartir enlace Mi carrera"
             trigger-icon="folder_shared"
+            :sent="!!item.dossier_link_sent_at"
             :load-link="() => loadDossierLink(item)"
             @copied="$emit('link-copied', $event)"
+            @sent="$emit('dossier-link-sent', item)"
           />
 
           <AppTooltip content="Eliminar piloto" align="right">
@@ -139,6 +149,8 @@
           @view-detail="$emit('view-detail', item)"
           @assign-plate="$emit('assign-plate', item)"
           @link-copied="$emit('link-copied', $event)"
+          @profile-link-sent="$emit('profile-link-sent', item)"
+          @dossier-link-sent="$emit('dossier-link-sent', item)"
           @delete="$emit('delete', item)"
         />
       </template>
@@ -163,7 +175,7 @@ const props = defineProps({
   loadDossierLink: { type: Function, required: true },
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'link-copied']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'link-copied', 'profile-link-sent', 'dossier-link-sent']);
 
 function loadProfileLink(item) {
   return props.loadProfileLink(item);
@@ -319,6 +331,21 @@ function getInitials(name) {
   color: #f59e0b;
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.sent-pill {
+  display: inline-flex;
+  margin-top: 4px;
+  width: fit-content;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #1b8a45;
+  background: rgba(34, 160, 90, 0.12);
+  border: 1px solid rgba(34, 160, 90, 0.35);
   border-radius: 999px;
   padding: 2px 8px;
 }

@@ -1,19 +1,6 @@
 /**
- * Mensajes WhatsApp.
- * Escapes \u{...} (ASCII en fuente). En desktop el texto NO va en la URL:
- * WhatsApp Desktop suele convertir esos emojis en caracteres rotos.
+ * Mensajes WhatsApp (sin emojis: en desktop suelen romperse al ir en la URL).
  */
-
-const E = {
-  hands: '\u{1F64C}', // raising hands
-  fire: '\u{1F525}', // fire
-  flag: '\u{1F3C1}', // chequered flag
-  orange: '\u{1F9E1}', // orange heart
-  mountain: '\u{26F0}\u{FE0F}', // mountain
-  wave: '\u{1F44B}', // wave
-  bike: '\u{1F6B2}', // bicycle
-  camera: '\u{1F4F8}', // camera flash
-};
 
 export function normalizeWaPhone(phone) {
   const digits = String(phone || '').replace(/\D+/g, '');
@@ -59,29 +46,33 @@ export function dossierThanksMessage(fullName, url) {
   const name = String(fullName || '').trim() || 'rider';
   const first = firstName(name);
   return (
-    `¡Hola ${name}! ${E.hands}${E.fire}\n\n` +
-    `¡Gracias por participar en Chacas Xtreme Race! Fue un honor tenerte en la montaña y ser parte de esta locura.\n\n` +
-    `Aquí tienes tu enlace personal a *Mi carrera* ${E.flag} - ahí verás tus tiempos, fotos y videos del evento:\n` +
+    `¡Hola ${name}!\n\n` +
+    `¡Gracias por participar en Chacas Xtreme Race! Fue un honor tenerte en la montaña.\n\n` +
+    `Aquí tienes tu enlace personal a *Mi carrera* — ahí verás tus tiempos, fotos y videos del evento:\n` +
     `${url}\n\n` +
-    `¡Gracias por ser parte de la familia Chacas Xtreme Race, ${first}! ${E.orange}${E.mountain} Nos vemos en la próxima.`
+    `¡Gracias por ser parte de la familia Chacas Xtreme Race, ${first}! Nos vemos en la próxima.`
   );
 }
 
 export function profileCompleteMessage(fullName, url) {
   const name = String(fullName || '').trim() || 'rider';
+  const first = firstName(name);
   return (
-    `¡Hola ${name}! ${E.wave}${E.bike}\n\n` +
-    `Sube tu foto rider y completa lo que falta para Chacas Xtreme Race.\n\n` +
-    `Entra aquí (es tu enlace personal):\n${url}`
+    `¡Hola ${name}!\n\n` +
+    `Bienvenido/a a Chacas Xtreme Race. Nos alegra tenerte en la carrera.\n\n` +
+    `De paso, entra a tu enlace personal, sube tu foto rider y completa lo que falte en tu ficha:\n` +
+    `${url}\n\n` +
+    `Cualquier duda, escríbenos. ¡Nos vemos en la montaña, ${first}!`
   );
 }
 
 export function photographerAccessMessage(fullName, url) {
   const name = String(fullName || '').trim() || 'camarógrafo';
   return (
-    `¡Hola ${name}! ${E.camera}${E.hands}\n\n` +
-    `Aquí tienes tu acceso al panel de camarógrafos de Chacas Xtreme Race.\n\n` +
-    `Entra aquí (enlace personal):\n${url}`
+    `¡Hola ${name}!\n\n` +
+    `Bienvenido/a al equipo de media de Chacas Xtreme Race.\n\n` +
+    `Aquí tienes tu acceso personal al panel de camarógrafos:\n` +
+    `${url}`
   );
 }
 

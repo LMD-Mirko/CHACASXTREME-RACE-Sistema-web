@@ -115,6 +115,16 @@ export async function issueRiderDossierLink(id, options = {}) {
   return response.data.data;
 }
 
+export async function markRiderProfileLinkSent(id) {
+  const response = await api.post(`/api/riders/${id}/profile-link/mark-sent`);
+  return response.data.data;
+}
+
+export async function markRiderDossierLinkSent(id) {
+  const response = await api.post(`/api/riders/${id}/dossier-link/mark-sent`);
+  return response.data.data;
+}
+
 /**
  * Elimina un piloto del sistema.
  * @param {number|string} id - ID del piloto.

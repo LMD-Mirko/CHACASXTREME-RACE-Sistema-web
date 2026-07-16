@@ -3,12 +3,14 @@
     <button
       type="button"
       class="share-trigger"
+      :class="{ 'is-sent': sent }"
       :aria-label="ariaLabel"
-      :title="ariaLabel"
+      :title="sent ? `${ariaLabel} (ya enviado)` : ariaLabel"
       :disabled="loading"
       @click.stop="toggle"
     >
       <span class="material-icons">{{ triggerIcon }}</span>
+      <span v-if="sent" class="share-trigger__dot" aria-hidden="true" />
     </button>
 
     <Teleport to="body">
@@ -58,9 +60,11 @@ const props = defineProps({
   title: { type: String, default: 'Compartir enlace' },
   ariaLabel: { type: String, default: 'Compartir enlace' },
   triggerIcon: { type: String, default: 'link' },
+  /** Ya se compartió al menos una vez (solo visual; no bloquea reenvío). */
+  sent: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['copied', 'error']);
+const emit = defineEmits(['copied', 'sent', 'error']);
 
 const wrapRef = ref(null);
 const open = ref(false);
@@ -134,6 +138,7 @@ async function copy() {
     await navigator.clipboard.writeText(data.url);
     hint.value = 'Enlace copiado';
     emit('copied', data.url);
+    emit('sent', { via: 'copy', url: data.url });
   } catch {
     hint.value = data.url;
   }
@@ -150,17 +155,18 @@ async function whatsapp() {
     return;
   }
 
-  // Desktop: el texto en la URL de WhatsApp rompe emojis → copiar y pegar.
+  // Desktop: copiar mensaje y abrir chat (el texto en la URL a veces se corta).
   if (text) {
     try {
       await navigator.clipboard.writeText(text);
       hint.value = 'Mensaje copiado. Pégalo en el chat (Ctrl+V).';
     } catch {
-      hint.value = 'Abriendo WhatsApp… si faltan emojis, usa Copiar.';
+      hint.value = 'Abriendo WhatsApp… si falta el texto, usa Copiar.';
     }
   }
 
   window.open(openUrl || `https://wa.me/${phone}`, '_blank', 'noopener,noreferrer');
+  emit('sent', { via: 'whatsapp', url: data?.url || null });
   setTimeout(() => {
     open.value = false;
   }, 2500);
@@ -200,6 +206,7 @@ onBeforeUnmount(() => {
 }
 
 .share-trigger {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -210,6 +217,22 @@ onBeforeUnmount(() => {
   background: var(--color-input-bg, var(--color-surface, transparent));
   color: var(--color-text-primary, #eee);
   cursor: pointer;
+}
+
+.share-trigger.is-sent {
+  border-color: rgba(34, 160, 90, 0.55);
+  color: #1b8a45;
+}
+
+.share-trigger__dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22a05a;
+  box-shadow: 0 0 0 2px var(--color-surface, #141414);
 }
 
 .share-trigger:disabled {

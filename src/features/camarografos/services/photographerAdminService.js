@@ -21,3 +21,8 @@ export async function issuePhotographerAccessLink(id, options = {}) {
   });
   return response.data.data;
 }
+
+export async function markPhotographerAccessLinkSent(id) {
+  const response = await api.post(`/api/admin/photographers/${id}/access-link/mark-sent`);
+  return response.data.data;
+}

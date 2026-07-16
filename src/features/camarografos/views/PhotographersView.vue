@@ -24,6 +24,7 @@
             <th>Teléfono</th>
             <th>Instagram</th>
             <th>Link</th>
+            <th>Envío</th>
             <th></th>
           </tr>
         </thead>
@@ -37,6 +38,15 @@
                 {{ row.has_login_token ? 'Listo' : 'Pendiente' }}
               </span>
             </td>
+            <td>
+              <span
+                class="pill"
+                :class="{ on: !!row.access_link_sent_at }"
+                :title="row.access_link_sent_at || ''"
+              >
+                {{ row.access_link_sent_at ? 'Enviado' : 'Sin enviar' }}
+              </span>
+            </td>
             <td class="actions">
               <button type="button" class="btn-ghost" title="Editar" @click="openEdit(row)">
                 <span class="material-icons">edit</span>
@@ -45,8 +55,10 @@
                 title="Enlace al panel"
                 ariaLabel="Compartir enlace de camarógrafo"
                 trigger-icon="link"
+                :sent="!!row.access_link_sent_at"
                 :load-link="() => loadAccessLink(row)"
                 @copied="onCopied"
+                @sent="() => onAccessLinkSent(row)"
               />
             </td>
           </tr>
@@ -94,6 +106,7 @@ import {
   createPhotographer,
   updatePhotographer,
   issuePhotographerAccessLink,
+  markPhotographerAccessLinkSent,
 } from '../services/photographerAdminService.js';
 
 const rows = ref([]);
@@ -161,7 +174,14 @@ async function save() {
 
 async function loadAccessLink(row) {
   const data = await issuePhotographerAccessLink(row.id);
-  await load();
+  // Solo refresca has_login_token; no marca enviado al abrir el popover
+  const updated = data?.photographer;
+  if (updated) {
+    const idx = rows.value.findIndex((r) => r.id === row.id);
+    if (idx !== -1) {
+      rows.value[idx] = { ...rows.value[idx], ...updated };
+    }
+  }
   return withClientWhatsApp(
     {
       ...data,
@@ -170,6 +190,20 @@ async function loadAccessLink(row) {
     },
     photographerAccessMessage,
   );
+}
+
+async function onAccessLinkSent(row) {
+  try {
+    const updated = await markPhotographerAccessLinkSent(row.id);
+    const idx = rows.value.findIndex((r) => r.id === row.id);
+    if (idx !== -1) {
+      rows.value[idx] = { ...rows.value[idx], ...updated };
+    }
+    toast.value = 'Envío registrado. Puedes reenviar cuando quieras.';
+    setTimeout(() => { toast.value = ''; }, 2800);
+  } catch (e) {
+    error.value = e.friendlyMessage || e.message || 'No se pudo marcar el envío.';
+  }
 }
 
 function onCopied(url) {

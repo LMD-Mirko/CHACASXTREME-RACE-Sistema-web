@@ -33,6 +33,8 @@
         @view-detail="openDetailModal"
         @assign-plate="openAssignPlateModal"
         @link-copied="onLinkCopied"
+        @profile-link-sent="onProfileLinkSent"
+        @dossier-link-sent="onDossierLinkSent"
         @delete="handleDelete"
       />
     </div>
@@ -106,6 +108,8 @@ const {
   assignPlate,
   getProfileLink,
   getDossierLink,
+  markProfileLinkSent,
+  markDossierLinkSent,
   removeRider,
 } = useRiders();
 
@@ -189,6 +193,16 @@ async function loadDossierShare(rider) {
 
 function onLinkCopied(url) {
   showShareToast(`Link copiado: ${url}`);
+}
+
+async function onProfileLinkSent(rider) {
+  const ok = await markProfileLinkSent(rider.id);
+  if (ok) showShareToast('Envío de ficha registrado. Puedes reenviar cuando quieras.');
+}
+
+async function onDossierLinkSent(rider) {
+  const ok = await markDossierLinkSent(rider.id);
+  if (ok) showShareToast('Envío de Mi carrera registrado. Puedes reenviar cuando quieras.');
 }
 
 async function handleSave({ id, data }) {

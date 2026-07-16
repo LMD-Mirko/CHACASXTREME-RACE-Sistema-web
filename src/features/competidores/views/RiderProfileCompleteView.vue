@@ -6,9 +6,9 @@
       <!-- HEADER -->
       <header class="rp-hero" :class="{ 'is-in': gateIn }">
         <p class="rp-brand">Chacas Xtreme Race</p>
-        <h1>Tu foto <span>rider</span></h1>
+        <h1>Bienvenido <span>rider</span></h1>
         <p class="rp-lede">
-          Sube una foto en acción (salto, bajada o con tu bici). Se publicará en la web oficial.
+          Nos alegra tenerte en la carrera. De paso, súbenos tu foto en acción y completa lo que falte en tu ficha — se publica en la web oficial.
         </p>
       </header>
 

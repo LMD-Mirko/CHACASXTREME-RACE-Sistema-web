@@ -25,6 +25,8 @@
       <h3 class="rider-name">{{ rider.full_name }}</h3>
       <p class="rider-nickname" v-if="rider.nickname">"{{ rider.nickname }}"</p>
       <span v-if="rider.profile_incomplete" class="incomplete-pill">Ficha incompleta</span>
+      <span v-if="rider.profile_link_sent_at" class="sent-pill">Ficha enviada</span>
+      <span v-if="rider.dossier_link_sent_at" class="sent-pill">Mi carrera enviada</span>
       
       <div class="rider-meta">
         <div class="meta-item">
@@ -95,16 +97,20 @@
           title="Completar ficha"
           ariaLabel="Compartir enlace completar ficha"
           trigger-icon="link"
+          :sent="!!rider.profile_link_sent_at"
           :load-link="() => loadProfileLink(rider)"
           @copied="$emit('link-copied', $event)"
+          @sent="$emit('profile-link-sent', rider)"
         />
 
         <ShareLinkPopover
           title="Mi carrera"
           ariaLabel="Compartir enlace Mi carrera"
           trigger-icon="folder_shared"
+          :sent="!!rider.dossier_link_sent_at"
           :load-link="() => loadDossierLink(rider)"
           @copied="$emit('link-copied', $event)"
+          @sent="$emit('dossier-link-sent', rider)"
         />
 
         <AppTooltip content="Eliminar" align="right">
@@ -133,7 +139,7 @@ const props = defineProps({
   loadDossierLink: { type: Function, required: true },
 });
 
-defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'link-copied']);
+defineEmits(['edit', 'change-status', 'view-detail', 'delete', 'assign-plate', 'link-copied', 'profile-link-sent', 'dossier-link-sent']);
 
 const statusStyle = computed(() => getStatusStyle(props.rider.race_status));
 
@@ -258,6 +264,21 @@ function getInitials(name) {
   color: #f59e0b;
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.sent-pill {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #1b8a45;
+  background: rgba(34, 160, 90, 0.12);
+  border: 1px solid rgba(34, 160, 90, 0.35);
   border-radius: 999px;
   padding: 2px 8px;
 }
