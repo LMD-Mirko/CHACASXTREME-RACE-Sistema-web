@@ -121,6 +121,7 @@ function handleSubmit() {
   Object.keys(payload).forEach((key) => {
     const value = payload[key];
     if (value === null || value === undefined) return;
+    if (value === '') return;
     if (key === 'plate_number' && value === '') return;
     formData.append(key, value);
   });
