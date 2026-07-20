@@ -5,6 +5,7 @@
     @close="$emit('close')"
   >
     <form @submit.prevent="handleSubmit" id="rider-form" class="rider-form-content">
+      <p v-if="validationError" class="form-validation-error" role="alert">{{ validationError }}</p>
       <RiderFormFields
         v-model="form"
         :categories="categories"
@@ -35,6 +36,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'save']);
+
+const validationError = ref('');
 
 const riderId = ref(null);
 const photoFile = ref(null);
@@ -91,6 +94,18 @@ function handleFileSelected(file) {
 }
 
 function handleSubmit() {
+  const name = (form.value.full_name || '').trim();
+  const phone = String(form.value.emergency_phone || '').trim();
+  const categoryId = form.value.category_id;
+
+  if (!name || !categoryId || !phone) {
+    validationError.value =
+      'Completa nombre completo, categoría y número telefónico del competidor.';
+    return;
+  }
+
+  validationError.value = '';
+
   const formData = new FormData();
   const payload = { ...form.value };
 
@@ -122,5 +137,16 @@ function handleSubmit() {
 .rider-form-content {
   display: flex;
   flex-direction: column;
+}
+
+.form-validation-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fecaca;
+  background: rgba(225, 29, 72, 0.12);
+  border: 1px solid rgba(225, 29, 72, 0.35);
 }
 </style>

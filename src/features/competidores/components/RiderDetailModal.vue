@@ -48,7 +48,7 @@
             <span class="info-value">{{ rider.club_team || '—' }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Contacto Emergencia:</span>
+            <span class="info-label">Teléfono del competidor:</span>
             <span class="info-value phone-text">{{ rider.emergency_phone }}</span>
           </div>
           <template v-if="rider.guardian_full_name || rider.guardian_dni || rider.guardian_phone">

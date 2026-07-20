@@ -42,17 +42,6 @@
       </div>
 
       <div class="form-group">
-        <label for="plate_number">Número de Placa</label>
-        <AppInput
-          id="plate_number"
-          type="number"
-          :model-value="modelValue.plate_number"
-          @update:model-value="updateValue('plate_number', parseInt($event) || '')"
-        />
-        <p class="field-hint">Opcional. También puedes asignarla después con “Asignar placa”.</p>
-      </div>
-
-      <div class="form-group">
         <label>Categoría *</label>
         <AppSelect
           :model-value="modelValue.category_id"
@@ -61,6 +50,35 @@
           placeholder="Seleccione categoría"
           icon="flag"
         />
+      </div>
+
+      <div class="form-group">
+        <label for="emergency_phone">Número telefónico del competidor *</label>
+        <AppInput
+          id="emergency_phone"
+          type="tel"
+          inputmode="tel"
+          :model-value="modelValue.emergency_phone"
+          @update:model-value="updateValue('emergency_phone', $event)"
+          required
+        />
+      </div>
+
+      <div class="form-group optional-hint-cell">
+        <p class="field-hint register-hint">
+          Solo estos tres datos son obligatorios. El resto puede completarlo el competidor con el enlace de perfil.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="plate_number">Número de Placa</label>
+        <AppInput
+          id="plate_number"
+          type="number"
+          :model-value="modelValue.plate_number"
+          @update:model-value="updateValue('plate_number', parseInt($event) || '')"
+        />
+        <p class="field-hint">Opcional. También puedes asignarla después con “Asignar placa”.</p>
       </div>
 
       <div class="form-group">
@@ -84,13 +102,13 @@
       </div>
 
       <div class="form-group">
-        <label for="origin">Procedencia *</label>
+        <label for="origin">Procedencia</label>
         <AppInput
           id="origin"
           type="text"
           :model-value="modelValue.origin"
           @update:model-value="updateValue('origin', $event)"
-          required
+          placeholder="Opcional"
         />
       </div>
 
@@ -115,21 +133,10 @@
         />
       </div>
 
-      <div class="form-group full-width">
-        <label for="emergency_phone">Contacto de Emergencia *</label>
-        <AppInput
-          id="emergency_phone"
-          type="number"
-          :model-value="modelValue.emergency_phone"
-          @update:model-value="updateValue('emergency_phone', $event)"
-          required
-        />
-      </div>
-
-      <!-- Solo CADETES, JUNIOR (obligatorio) y OPEN (opcional) -->
+      <!-- Apoderado: opcional en registro staff; lo completa el competidor si hace falta -->
       <template v-if="showsGuardianSection">
         <div
-          v-if="guardianIsOptional"
+          v-if="guardianIsRequired || guardianIsOptional"
           class="form-group full-width guardian-toggle"
         >
           <label class="checkbox-row">
@@ -138,29 +145,25 @@
               :checked="hasGuardian"
               @change="toggleGuardian($event.target.checked)"
             />
-            <span>Tiene apoderado (menores / tutela)</span>
+            <span>Registrar datos de apoderado ahora (opcional)</span>
           </label>
-          <p class="field-hint">
-            En OPEN solo aplica si el competidor es menor de edad.
-          </p>
         </div>
 
         <template v-if="showGuardianFields">
           <div class="form-group full-width guardian-block-title">
             Datos del apoderado
-            <span v-if="guardianIsRequired" class="guardian-required-badge">Obligatorio</span>
+            <span class="guardian-optional-badge">Opcional</span>
           </div>
-          <p v-if="guardianIsRequired" class="field-hint guardian-hint">
-            En Cadetes y Junior el apoderado es obligatorio.
+          <p class="field-hint guardian-hint">
+            El competidor también puede completar estos datos con su enlace de perfil.
           </p>
           <div class="form-group">
-            <label for="guardian_full_name">Nombre completo del apoderado *</label>
+            <label for="guardian_full_name">Nombre completo del apoderado</label>
             <AppInput
               id="guardian_full_name"
               type="text"
               :model-value="modelValue.guardian_full_name"
               @update:model-value="updateValue('guardian_full_name', $event)"
-              required
             />
           </div>
           <div class="form-group">
@@ -229,7 +232,9 @@ const showsGuardianSection = computed(
 
 const hasGuardian = computed(() => Boolean(props.modelValue.has_guardian));
 const showGuardianFields = computed(
-  () => guardianIsRequired.value || (guardianIsOptional.value && hasGuardian.value)
+  () =>
+    (guardianIsRequired.value && hasGuardian.value)
+    || (guardianIsOptional.value && hasGuardian.value)
 );
 
 const previewUrl = computed(() => {
@@ -250,21 +255,13 @@ watch(
 
 function syncGuardianForCategory(name) {
   if (GUARDIAN_REQUIRED_RE.test(name)) {
-    if (!props.modelValue.has_guardian) {
-      emit('update:modelValue', {
-        ...props.modelValue,
-        has_guardian: true,
-      });
-    }
     return;
   }
 
   if (GUARDIAN_OPTIONAL_RE.test(name)) {
-    // OPEN: dejar el checkbox como está (no forzar ni limpiar)
     return;
   }
 
-  // Otras categorías: ocultar y limpiar
   if (
     props.modelValue.has_guardian ||
     props.modelValue.guardian_full_name ||
@@ -309,7 +306,12 @@ function onCategoryChange(categoryId) {
   };
 
   if (GUARDIAN_REQUIRED_RE.test(name)) {
-    next.has_guardian = true;
+    next.has_guardian = Boolean(
+      props.modelValue.has_guardian
+        || props.modelValue.guardian_full_name
+        || props.modelValue.guardian_dni
+        || props.modelValue.guardian_phone
+    );
   } else if (!GUARDIAN_OPTIONAL_RE.test(name)) {
     next.has_guardian = false;
     next.guardian_full_name = '';
@@ -473,6 +475,26 @@ label {
   text-transform: uppercase;
   color: var(--color-primary, #ff5e00);
   margin-top: 4px;
+}
+
+.guardian-optional-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+.optional-hint-cell {
+  justify-content: center;
+}
+
+.register-hint {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .guardian-required-badge {
