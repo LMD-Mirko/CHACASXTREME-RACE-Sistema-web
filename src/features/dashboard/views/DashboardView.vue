@@ -59,13 +59,6 @@
       </div>
     </Transition>
 
-    <!-- Aviso ADMIN en móvil: menú reducido a gestión -->
-    <div v-if="isAdmin && isMobile && showAdminMobileHint" class="admin-mobile-hint fade-in">
-      <span class="material-icons">phone_android</span>
-      <p>En el celular: Corredores, Checkpoint, Chat, Posición y Config. En laptop tienes el menú completo (incl. Camarógrafos).</p>
-      <button type="button" class="hint-dismiss" @click="showAdminMobileHint = false">OK</button>
-    </div>
-
     <!-- Sidebar lateral (desktop) -->
     <AppSidebar
       v-if="!isMobile"
@@ -111,7 +104,7 @@ import api from '../../../core/network/axios';
 import { syncServerClock } from '../../../core/time/raceTime';
 import { useStaffChat } from '../composables/useStaffChat';
 
-const ADMIN_MOBILE_ALLOWED = ['competidores', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
+const ADMIN_MOBILE_ALLOWED = ['competidores', 'entrega-placas', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
 
 const isSidebarOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 1023px)');
@@ -119,7 +112,6 @@ const route = useRoute();
 const router = useRouter();
 const { currentUser, logout } = useAuth();
 const { ensureStaffChatChannel, unread, openPanel } = useStaffChat();
-const showAdminMobileHint = ref(true);
 
 const rollCallAlert = ref('');
 const isRollCallSender = ref(false);
@@ -310,45 +302,6 @@ onBeforeUnmount(() => {
 .dashboard-content--mobile {
   /* Menú flotante (~72px) + margen + home indicator iPhone */
   padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
-}
-
-/* === Aviso ADMIN en móvil (no bloquea) === */
-.admin-mobile-hint {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: rgba(255, 94, 0, 0.12);
-  border-bottom: 1px solid rgba(255, 94, 0, 0.35);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.admin-mobile-hint .material-icons {
-  color: var(--color-primary);
-  font-size: 20px;
-}
-
-.admin-mobile-hint p {
-  flex: 1;
-  margin: 0;
-  line-height: 1.35;
-}
-
-.hint-dismiss {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .user-name {
