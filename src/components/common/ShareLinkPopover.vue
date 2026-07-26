@@ -148,20 +148,24 @@ async function whatsapp() {
   const data = await ensureLoaded(true);
   const phone = data?.whatsapp_phone;
   const text = data?.whatsapp_text;
-  const openUrl = data?.whatsapp_url;
+  // Preferir URL con ?text= ya armada; si no, construirla ahora.
+  let openUrl = data?.whatsapp_url;
+  if (phone && text && (!openUrl || !String(openUrl).includes('text='))) {
+    openUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  }
 
   if (!openUrl && !phone) {
     hint.value = 'Falta teléfono para WhatsApp.';
     return;
   }
 
-  // Desktop: copiar mensaje y abrir chat (el texto en la URL a veces se corta).
+  // Respaldo: también copiar por si WhatsApp Web trunca URLs muy largas.
   if (text) {
     try {
       await navigator.clipboard.writeText(text);
-      hint.value = 'Mensaje copiado. Pégalo en el chat (Ctrl+V).';
+      hint.value = 'Abriendo WhatsApp con el mensaje…';
     } catch {
-      hint.value = 'Abriendo WhatsApp… si falta el texto, usa Copiar.';
+      hint.value = 'Abriendo WhatsApp…';
     }
   }
 
