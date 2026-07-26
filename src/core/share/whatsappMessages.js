@@ -23,8 +23,7 @@ export function phoneFromWhatsAppUrl(waUrl) {
 
 /**
  * URL de chat con mensaje prellenado.
- * Siempre incluye `text` cuando hay mensaje: en WhatsApp Web/Desktop
- * antes se omitía y el chat quedaba vacío si el clipboard fallaba.
+ * Siempre incluye `text` cuando hay mensaje.
  */
 export function buildWhatsAppUrl(phone, text) {
   const waPhone = normalizeWaPhone(phone) || phoneFromWhatsAppUrl(phone);
@@ -33,6 +32,58 @@ export function buildWhatsAppUrl(phone, text) {
     return `https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`;
   }
   return `https://wa.me/${waPhone}`;
+}
+
+/** Deep link nativo (útil en iOS si el universal link falla). */
+export function buildWhatsAppAppScheme(phone, text) {
+  const waPhone = normalizeWaPhone(phone) || phoneFromWhatsAppUrl(phone);
+  if (!waPhone) return null;
+  if (text) {
+    return `whatsapp://send?phone=${waPhone}&text=${encodeURIComponent(text)}`;
+  }
+  return `whatsapp://send?phone=${waPhone}`;
+}
+
+export function isStandalonePwa() {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true
+  );
+}
+
+function isMobileLike() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+}
+
+/**
+ * Abre WhatsApp con mensaje listo.
+ * En iPhone/PWA usa location.assign (window.open tras await se bloquea).
+ */
+export function openWhatsAppChat({ phone, text, url } = {}) {
+  let openUrl = url || null;
+  if (phone && text && (!openUrl || !String(openUrl).includes('text='))) {
+    openUrl = buildWhatsAppUrl(phone, text);
+  }
+  if (!openUrl) {
+    openUrl = buildWhatsAppUrl(phone, text);
+  }
+  if (!openUrl) return false;
+
+  const mobileOrPwa = isMobileLike() || isStandalonePwa();
+
+  if (mobileOrPwa) {
+    // Sale de la PWA / Safari hacia WhatsApp con el texto prellenado.
+    window.location.assign(openUrl);
+    return true;
+  }
+
+  const win = window.open(openUrl, '_blank', 'noopener,noreferrer');
+  if (!win || win.closed) {
+    window.location.assign(openUrl);
+  }
+  return true;
 }
 
 function firstName(fullName) {

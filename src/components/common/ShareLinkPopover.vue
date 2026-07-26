@@ -53,6 +53,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { openWhatsAppChat } from '../../core/share/whatsappMessages.js';
 
 const props = defineProps({
   /** async () => ({ url, whatsapp_url }) */
@@ -144,36 +145,44 @@ async function copy() {
   }
 }
 
-async function whatsapp() {
-  const data = await ensureLoaded(true);
+function whatsapp() {
+  // Usar lo ya cargado al abrir el popover (sin await): en iPhone/PWA
+  // cualquier await antes de abrir WhatsApp pierde el gesto y se bloquea.
+  const data = payload.value;
   const phone = data?.whatsapp_phone;
   const text = data?.whatsapp_text;
-  // Preferir URL con ?text= ya armada; si no, construirla ahora.
   let openUrl = data?.whatsapp_url;
   if (phone && text && (!openUrl || !String(openUrl).includes('text='))) {
     openUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   }
 
+  if (!data?.url) {
+    hint.value = 'Espera a que cargue el enlace…';
+    return;
+  }
   if (!openUrl && !phone) {
     hint.value = 'Falta teléfono para WhatsApp.';
     return;
   }
 
-  // Respaldo: también copiar por si WhatsApp Web trunca URLs muy largas.
-  if (text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      hint.value = 'Abriendo WhatsApp con el mensaje…';
-    } catch {
-      hint.value = 'Abriendo WhatsApp…';
-    }
+  hint.value = 'Abriendo WhatsApp…';
+  const ok = openWhatsAppChat({
+    phone,
+    text,
+    url: openUrl || (phone ? `https://wa.me/${phone}` : null),
+  });
+
+  // Clipboard en paralelo (no bloquea la apertura)
+  if (text && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
   }
 
-  window.open(openUrl || `https://wa.me/${phone}`, '_blank', 'noopener,noreferrer');
-  emit('sent', { via: 'whatsapp', url: data?.url || null });
-  setTimeout(() => {
-    open.value = false;
-  }, 2500);
+  if (ok) {
+    emit('sent', { via: 'whatsapp', url: data?.url || null });
+    setTimeout(() => {
+      open.value = false;
+    }, 600);
+  }
 }
 
 function onDocClick(e) {
