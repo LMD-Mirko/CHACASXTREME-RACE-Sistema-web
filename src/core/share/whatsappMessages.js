@@ -21,17 +21,15 @@ export function phoneFromWhatsAppUrl(waUrl) {
   }
 }
 
-function isMobileUa() {
-  if (typeof navigator === 'undefined') return false;
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-}
-
-/** En móvil incluye text; en desktop solo abre el chat (el mensaje se pega desde el clipboard). */
-export function buildWhatsAppUrl(phone, text, { forceTextInUrl = false } = {}) {
+/**
+ * URL de chat con mensaje prellenado.
+ * Siempre incluye `text` cuando hay mensaje: en WhatsApp Web/Desktop
+ * antes se omitía y el chat quedaba vacío si el clipboard fallaba.
+ */
+export function buildWhatsAppUrl(phone, text) {
   const waPhone = normalizeWaPhone(phone) || phoneFromWhatsAppUrl(phone);
   if (!waPhone) return null;
-  const putText = (forceTextInUrl || isMobileUa()) && text;
-  if (putText) {
+  if (text) {
     return `https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`;
   }
   return `https://wa.me/${waPhone}`;
