@@ -54,6 +54,11 @@ const routes = [
         component: RidersView,
       },
       {
+        path: 'entrega-placas',
+        name: 'entrega-placas',
+        component: () => import('../features/entrega-placas/views/PlateDeliveryView.vue'),
+      },
+      {
         path: 'camarografos',
         name: 'camarografos',
         component: () => import('../features/camarografos/views/PhotographersView.vue'),
@@ -90,13 +95,13 @@ const ROLE_DEFAULT_ROUTES = {
 };
 
 const ROLE_ALLOWED_ROUTES = {
-  PARTIDA: ['partida', 'categorias-explorer', 'competidores', 'posicion'],
+  PARTIDA: ['partida', 'categorias-explorer', 'competidores', 'entrega-placas', 'posicion'],
   INTERMEDIO: ['checkpoint', 'categorias-explorer', 'competidores', 'posicion'],
   META: ['meta', 'confirmacion', 'categorias-explorer', 'posicion'],
 };
 
 /** En teléfono el ADMIN gestiona + puede abrir checkpoint para pruebas Intermedio. */
-const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
+const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'entrega-placas', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
 const ADMIN_MOBILE_DEFAULT = '/dashboard/competidores';
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 

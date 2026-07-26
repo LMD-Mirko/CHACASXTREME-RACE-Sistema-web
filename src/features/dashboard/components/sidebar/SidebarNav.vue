@@ -35,6 +35,7 @@ const allItems = {
   meta:         { name: 'meta',                path: '/dashboard/meta',                icon: 'emoji_events',  label: 'Meta' },
   confirmacion: { name: 'confirmacion',        path: '/dashboard/confirmacion',        icon: 'assignment_turned_in', label: 'Confirmación' },
   competidores: { name: 'competidores',        path: '/dashboard/competidores',        icon: 'group',         label: 'Competidores' },
+  entregaPlacas: { name: 'entrega-placas',     path: '/dashboard/entrega-placas',      icon: 'inventory_2',   label: 'Entrega placas' },
   camarografos: { name: 'camarografos',        path: '/dashboard/camarografos',        icon: 'photo_camera',  label: 'Camarógrafos' },
   configuracion: { name: 'configuracion',       path: '/dashboard/configuracion',       icon: 'settings',      label: 'Configuración' },
   posicion:     { name: 'posicion',            path: '/dashboard/posicion',            icon: 'sports_score',  label: 'Posición' },
@@ -42,7 +43,7 @@ const allItems = {
 
 const filteredNavItems = computed(() => {
   if (role.value === 'PARTIDA') {
-    return [allItems.partida, allItems.categorias, allItems.competidores, allItems.posicion];
+    return [allItems.partida, allItems.categorias, allItems.competidores, allItems.entregaPlacas, allItems.posicion];
   } else if (role.value === 'INTERMEDIO') {
     return [allItems.checkpoint, allItems.categorias, allItems.competidores, allItems.posicion];
   } else if (role.value === 'META') {
@@ -57,6 +58,7 @@ const filteredNavItems = computed(() => {
     allItems.confirmacion,
     allItems.categorias,
     allItems.competidores,
+    allItems.entregaPlacas,
     allItems.camarografos,
     allItems.posicion,
     allItems.configuracion

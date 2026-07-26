@@ -118,6 +118,7 @@ const menuItems = computed(() => {
     partida: { name: 'partida', path: '/dashboard/partida', icon: 'flag', label: 'Partida' },
     categorias: { name: 'categorias', path: '/dashboard/categorias-explorer', icon: 'grid_view', label: 'Categorías' },
     competidores: { name: 'competidores', path: '/dashboard/competidores', icon: 'group', label: 'Corredores' },
+    entregaPlacas: { name: 'entrega-placas', path: '/dashboard/entrega-placas', icon: 'inventory_2', label: 'Entrega' },
     camarografos: { name: 'camarografos', path: '/dashboard/camarografos', icon: 'photo_camera', label: 'Cámaras' },
     posicion: { name: 'posicion', path: '/dashboard/posicion', icon: 'sports_score', label: 'Posición' },
     configuracion: { name: 'configuracion', path: '/dashboard/configuracion', icon: 'settings', label: 'Config' },
@@ -127,7 +128,7 @@ const menuItems = computed(() => {
   };
 
   if (role.value === 'PARTIDA') {
-    return [allItems.partida, allItems.categorias, allItems.competidores, chat, allItems.posicion];
+    return [allItems.partida, allItems.categorias, allItems.competidores, allItems.entregaPlacas, chat, allItems.posicion];
   }
   if (role.value === 'INTERMEDIO') {
     return [allItems.checkpoint, allItems.categorias, allItems.competidores, chat, allItems.posicion];
@@ -138,6 +139,7 @@ const menuItems = computed(() => {
   if (role.value === 'ADMIN') {
     return [
       allItems.competidores,
+      allItems.entregaPlacas,
       allItems.checkpoint,
       chat,
       allItems.posicion,
