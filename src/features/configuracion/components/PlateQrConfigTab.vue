@@ -4,9 +4,9 @@
       <div>
         <h2>Placas QR 4×4 cm</h2>
         <p>
-          Genera un PDF A4 premium con stickers de <strong>40×40 mm</strong>,
-          separados <strong>3.5 mm</strong> (4×6 = 24 por hoja) para cortar fácil.
-          Diseño dark + acentos naranja/oro.
+          Genera un PDF A4 con stickers de <strong>40×40 mm</strong> para las
+          <strong>{{ plateMax || 150 }} placas</strong> del inventario.
+          Se imprimen ya; al escanear se vinculan al competidor que tenga esa placa asignada.
         </p>
       </div>
       <AppButton variant="secondary" :disabled="loading" @click="load">
@@ -20,7 +20,16 @@
 
     <div class="toolbar">
       <div class="form-group">
-        <label>Filtrar categoría</label>
+        <label>Incluir</label>
+        <AppSelect
+          v-model="statusFilter"
+          :options="statusOptions"
+          placeholder="Todas"
+          icon="filter_alt"
+        />
+      </div>
+      <div class="form-group">
+        <label>Filtrar categoría (solo asignadas)</label>
         <AppSelect
           v-model="categoryFilter"
           :options="categoryOptions"
@@ -29,31 +38,34 @@
         />
       </div>
       <div class="stats-inline">
-        <span>{{ filteredRiders.length }} placas</span>
+        <span>{{ filteredPlates.length }} stickers</span>
         <span>·</span>
         <span>{{ pagesEstimate }} hoja(s)</span>
         <span>·</span>
+        <span>{{ takenCount }} asignadas</span>
+        <span>·</span>
         <span>{{ competitionName || 'Sin competencia' }}</span>
       </div>
-      <AppButton :loading="generating" :disabled="!filteredRiders.length || generating" @click="generate">
+      <AppButton :loading="generating" :disabled="!filteredPlates.length || generating" @click="generate">
         <span class="material-icons">picture_as_pdf</span>
         Descargar PDF
       </AppButton>
     </div>
 
-    <div v-if="loading" class="muted">Cargando competidores con placa…</div>
+    <div v-if="loading" class="muted">Cargando catálogo de placas…</div>
 
     <div v-else class="preview-grid">
-      <article v-for="r in filteredRiders.slice(0, 12)" :key="r.id" class="mini">
-        <canvas :ref="(el) => setCanvasRef(r.id, el)" class="mini-canvas" />
+      <article v-for="p in filteredPlates.slice(0, 12)" :key="p.plate_number" class="mini">
+        <canvas :ref="(el) => setCanvasRef(p.plate_number, el)" class="mini-canvas" />
         <div class="mini-meta">
-          <strong>#{{ r.plate_number }}</strong>
-          <span>{{ r.full_name }}</span>
+          <strong>#{{ p.plate_number }}</strong>
+          <span v-if="p.taken">{{ p.full_name || p.rider?.full_name }}</span>
+          <span v-else class="free">Sin asignar</span>
         </div>
       </article>
-      <p v-if="!filteredRiders.length" class="muted">No hay riders con número de placa.</p>
-      <p v-else-if="filteredRiders.length > 12" class="muted more">
-        +{{ filteredRiders.length - 12 }} más en el PDF…
+      <p v-if="!filteredPlates.length" class="muted">No hay placas para este filtro.</p>
+      <p v-else-if="filteredPlates.length > 12" class="muted more">
+        +{{ filteredPlates.length - 12 }} más en el PDF…
       </p>
     </div>
 
@@ -72,25 +84,44 @@ const generating = ref(false);
 const error = ref('');
 const toast = ref('');
 const progress = ref('');
-const riders = ref([]);
+const plates = ref([]);
 const competitionName = ref('');
+const plateMax = ref(150);
 const categoryFilter = ref('');
+const statusFilter = ref('all');
 const categories = ref([]);
 const canvasMap = new Map();
+let paintGen = 0;
+
+const statusOptions = [
+  { value: 'all', label: 'Todas (1–150)' },
+  { value: 'free', label: 'Solo libres' },
+  { value: 'taken', label: 'Solo asignadas' },
+];
 
 const categoryOptions = computed(() => [
   { value: '', label: 'Todas las categorías' },
   ...categories.value.map((c) => ({ value: String(c.id), label: c.name })),
 ]);
 
-const filteredRiders = computed(() => {
-  if (!categoryFilter.value) return riders.value;
-  return riders.value.filter((r) => String(r.category_id) === String(categoryFilter.value));
+const filteredPlates = computed(() => {
+  let list = plates.value;
+  if (statusFilter.value === 'free') {
+    list = list.filter((p) => !p.taken);
+  } else if (statusFilter.value === 'taken') {
+    list = list.filter((p) => p.taken);
+  }
+  if (categoryFilter.value) {
+    list = list.filter((p) => String(p.category_id) === String(categoryFilter.value));
+  }
+  return list;
 });
+
+const takenCount = computed(() => plates.value.filter((p) => p.taken).length);
 
 const pagesEstimate = computed(() => {
   const per = GRID.cols * GRID.rows;
-  return Math.max(1, Math.ceil((filteredRiders.value.length || 0) / per));
+  return Math.max(1, Math.ceil((filteredPlates.value.length || 0) / per));
 });
 
 function setCanvasRef(id, el) {
@@ -98,25 +129,46 @@ function setCanvasRef(id, el) {
   else canvasMap.delete(id);
 }
 
+function stickerModel(p) {
+  return {
+    plate_number: p.plate_number,
+    payload: p.payload,
+    url: p.url,
+    category_name: p.category_name || p.rider?.category_name || null,
+    full_name: p.full_name || p.rider?.full_name || null,
+  };
+}
+
 async function paintPreviews() {
   if (loading.value) return;
+  const gen = ++paintGen;
   await nextTick();
-  // Frame extra: los canvas solo montan con loading === false
   await new Promise((r) => requestAnimationFrame(() => r()));
-  if (loading.value) return;
-  const subset = filteredRiders.value.slice(0, 12);
-  for (const r of subset) {
-    const host = canvasMap.get(r.id);
-    if (!host || !r.payload) continue;
+  await new Promise((r) => requestAnimationFrame(() => r()));
+  if (loading.value || gen !== paintGen) return;
+
+  const subset = filteredPlates.value.slice(0, 12);
+  for (const p of subset) {
+    if (gen !== paintGen) return;
+    let host = canvasMap.get(p.plate_number);
+    // Ref a veces llega un frame tarde tras v-if loading
+    if (!host) {
+      await nextTick();
+      host = canvasMap.get(p.plate_number);
+    }
+    if (!host || !p.payload) continue;
     try {
-      const src = await renderStickerCanvas(r, { pxPerMm: 6 });
+      const src = await renderStickerCanvas(stickerModel(p), { pxPerMm: 6 });
+      if (gen !== paintGen) return;
+      // Re-leer ref por si Vue remountó el canvas durante el await
+      host = canvasMap.get(p.plate_number) || host;
       const ctx = host.getContext('2d');
       host.width = src.width;
       host.height = src.height;
       ctx.clearRect(0, 0, host.width, host.height);
       ctx.drawImage(src, 0, 0);
     } catch (e) {
-      console.warn('Preview QR falló', r.plate_number, e);
+      console.warn('Preview QR falló', p.plate_number, e);
     }
   }
 }
@@ -132,7 +184,8 @@ async function load() {
     categories.value = cat || [];
     const data = res.data?.data;
     competitionName.value = data?.competition?.name || '';
-    riders.value = data?.riders || [];
+    plateMax.value = data?.plate_max || 150;
+    plates.value = data?.plates || data?.riders || [];
   } catch (e) {
     error.value = e.friendlyMessage || e.message || 'No se pudo cargar.';
   } finally {
@@ -146,7 +199,8 @@ async function generate() {
   error.value = '';
   progress.value = '';
   try {
-    const result = await buildPlateQrPdf(filteredRiders.value, {
+    const list = filteredPlates.value.map(stickerModel);
+    const result = await buildPlateQrPdf(list, {
       competitionName: competitionName.value,
       onProgress: (n, total) => {
         progress.value = `Generando sticker ${n} / ${total}…`;
@@ -162,7 +216,7 @@ async function generate() {
   }
 }
 
-watch(filteredRiders, () => {
+watch(filteredPlates, () => {
   paintPreviews();
 });
 
@@ -193,7 +247,7 @@ onMounted(load);
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.88rem;
-  max-width: 40rem;
+  max-width: 42rem;
   line-height: 1.4;
 }
 
@@ -212,7 +266,7 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 220px;
+  min-width: 200px;
   flex: 1;
 }
 
@@ -277,6 +331,11 @@ onMounted(load);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.mini-meta .free {
+  color: #ca8a04;
+  font-weight: 600;
 }
 
 .more { grid-column: 1 / -1; }

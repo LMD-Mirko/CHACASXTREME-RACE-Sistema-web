@@ -34,14 +34,20 @@
     </div>
 
     <!-- Botón de creación -->
-    <AppButton
-      icon="add"
-      @click="$emit('create')"
-      aria-label="Agregar nuevo competidor"
-      class="btn-create"
-    >
-      Nuevo Piloto
-    </AppButton>
+    <div class="filters-actions">
+      <p class="riders-total" aria-live="polite">
+        <strong>{{ total }}</strong>
+        {{ total === 1 ? 'competidor' : 'competidores' }}
+      </p>
+      <AppButton
+        icon="add"
+        @click="$emit('create')"
+        aria-label="Agregar nuevo competidor"
+        class="btn-create"
+      >
+        Nuevo Piloto
+      </AppButton>
+    </div>
   </div>
 </template>
 
@@ -51,6 +57,7 @@ import { computed } from 'vue';
 const props = defineProps({
   modelValue: { type: Object, required: true },
   categories: { type: Array, required: true },
+  total: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(['update:modelValue', 'create']);
@@ -92,6 +99,27 @@ function updateField(key, value) {
   width: 100%;
 }
 
+.filters-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.riders-total {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.riders-total strong {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
 /* === DESKTOP: Disposición en fila para filtros === */
 @media (min-width: 1024px) {
   .filters-container {
@@ -117,6 +145,10 @@ function updateField(key, value) {
   .incomplete-toggle {
     flex: 0 0 auto;
     white-space: nowrap;
+  }
+
+  .filters-actions {
+    justify-content: flex-end;
   }
 
   .btn-create {

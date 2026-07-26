@@ -202,9 +202,12 @@ function drawImage(ctx, src, x, y, w, h) {
 /**
  * PDF A4 prolijo: stickers 40 mm con separación GAP_MM y marcas de corte.
  */
-export async function buildPlateQrPdf(riders, options = {}) {
-  const list = Array.isArray(riders) ? riders : [];
-  if (!list.length) throw new Error('No hay competidores con placa.');
+/**
+ * @param {Array<{plate_number:number,payload?:string,url?:string,category_name?:string}>} plates
+ */
+export async function buildPlateQrPdf(plates, options = {}) {
+  const list = Array.isArray(plates) ? plates : [];
+  if (!list.length) throw new Error('No hay placas para generar.');
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const { cols, rows } = GRID;

@@ -244,15 +244,26 @@ async function handlePayload(payload) {
   statusLine.value = 'Validando…';
 
   try {
-    const rider = await resolvePlateQr(payload);
-    if (!rider) {
+    const resolved = await resolvePlateQr(payload);
+    if (!resolved?.ok) {
       beep(false);
       pulse('err');
-      showFlash('err', 'QR inválido', 'No pertenece a esta edición');
+      showFlash('err', 'QR inválido', resolved?.message || 'No pertenece a esta edición');
       statusLine.value = '';
       return;
     }
 
+    if (!resolved.assigned || !resolved.rider) {
+      const n = resolved.plate_number ?? '?';
+      coolPlate(String(n), 1200);
+      beep(false);
+      pulse('err');
+      showFlash('warn', `#${n}`, resolved.message || 'Placa libre / sin competidor');
+      statusLine.value = '';
+      return;
+    }
+
+    const rider = resolved.rider;
     const plate = plateKey(rider);
     if (!isPlateCool(plate)) {
       statusLine.value = '';

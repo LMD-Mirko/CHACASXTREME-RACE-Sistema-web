@@ -7,6 +7,7 @@
     <form @submit.prevent="handleSubmit" id="rider-form" class="rider-form-content">
       <p v-if="validationError" class="form-validation-error" role="alert">{{ validationError }}</p>
       <RiderFormFields
+        :key="formInstanceKey"
         v-model="form"
         :categories="categories"
         @file-selected="handleFileSelected"
@@ -38,9 +39,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save']);
 
 const validationError = ref('');
-
 const riderId = ref(null);
 const photoFile = ref(null);
+const formInstanceKey = ref(0);
 
 const defaultForm = () => ({
   full_name: '',
@@ -66,27 +67,43 @@ function categoryRequiresGuardian(rider) {
   return /cadetes|junior/i.test(name);
 }
 
+function hydrateFromRider(rider) {
+  validationError.value = '';
+  photoFile.value = null;
+  formInstanceKey.value += 1;
+
+  if (rider) {
+    riderId.value = rider.id;
+    const hasGuardianData = Boolean(
+      rider.guardian_full_name || rider.guardian_dni || rider.guardian_phone
+    );
+    form.value = {
+      ...defaultForm(),
+      ...rider,
+      has_guardian: categoryRequiresGuardian(rider) || hasGuardianData,
+    };
+    return;
+  }
+
+  riderId.value = null;
+  form.value = defaultForm();
+}
+
+// Al abrir el modal siempre hidratar (create o edit). Si solo se miraba `rider`,
+// al reabrir "Nuevo Piloto" rider seguía null y el form quedaba con datos viejos.
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) hydrateFromRider(props.rider || null);
+  }
+);
+
 watch(
   () => props.rider,
   (newVal) => {
-    if (newVal) {
-      riderId.value = newVal.id;
-      const hasGuardianData = Boolean(
-        newVal.guardian_full_name || newVal.guardian_dni || newVal.guardian_phone
-      );
-      form.value = {
-        ...defaultForm(),
-        ...newVal,
-        // Cadetes/Junior siempre muestran apoderado; OPEN solo si ya hay datos
-        has_guardian: categoryRequiresGuardian(newVal) || hasGuardianData,
-      };
-    } else {
-      riderId.value = null;
-      form.value = defaultForm();
-    }
-    photoFile.value = null;
-  },
-  { immediate: true }
+    if (!props.isOpen) return;
+    hydrateFromRider(newVal || null);
+  }
 );
 
 function handleFileSelected(file) {
@@ -109,7 +126,6 @@ function handleSubmit() {
   const formData = new FormData();
   const payload = { ...form.value };
 
-  // No enviar flag UI al API
   delete payload.has_guardian;
 
   if (!form.value.has_guardian) {

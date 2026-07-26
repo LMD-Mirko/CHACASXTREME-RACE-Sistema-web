@@ -5,6 +5,7 @@
       :model-value="filters"
       @update:model-value="Object.assign(filters, $event)"
       :categories="categories"
+      :total="riders.length"
       @create="openCreateModal"
     />
 
@@ -45,7 +46,7 @@
       :rider="selectedRider"
       :categories="categories"
       :is-saving="isLoading"
-      @close="isFormOpen = false"
+      @close="closeFormModal"
       @save="handleSave"
     />
 
@@ -136,6 +137,11 @@ function openEditModal(rider) {
   isFormOpen.value = true;
 }
 
+function closeFormModal() {
+  isFormOpen.value = false;
+  selectedRider.value = null;
+}
+
 function openStatusModal(rider) {
   selectedRider.value = rider;
   isStatusOpen.value = true;
@@ -207,7 +213,7 @@ async function onDossierLinkSent(rider) {
 
 async function handleSave({ id, data }) {
   const success = await saveRiderData(id, data);
-  if (success) isFormOpen.value = false;
+  if (success) closeFormModal();
 }
 
 async function handleAssignPlate({ id, plate_number }) {
