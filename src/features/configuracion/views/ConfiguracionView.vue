@@ -2,7 +2,7 @@
   <div class="configuracion-view fade-in">
     <header class="config-header">
       <h1>Configuración del Sistema</h1>
-      <p class="config-subtitle">Staff, carrera, auspiciadores, galería y descarga de media de la 4ª edición.</p>
+      <p class="config-subtitle">Staff, carrera, auspiciadores, galería, placas QR y prueba de escaneo.</p>
     </header>
 
     <!-- Navegación por pestañas -->
@@ -40,6 +40,7 @@ import GalleryConfigTab from '../components/GalleryConfigTab.vue';
 import Edition4MediaTab from '../components/Edition4MediaTab.vue';
 import PlateQrConfigTab from '../components/PlateQrConfigTab.vue';
 import PlateInventoryConfigTab from '../components/PlateInventoryConfigTab.vue';
+import QrTesterConfigTab from '../components/QrTesterConfigTab.vue';
 
 const tabs = [
   { id: 'users', label: 'Usuarios Staff', icon: 'manage_accounts', component: UsersConfigTab },
@@ -50,6 +51,7 @@ const tabs = [
   { id: 'edition4-media', label: 'Media Ed.4', icon: 'folder_zip', component: Edition4MediaTab },
   { id: 'plates', label: 'Inventario placas', icon: 'grid_view', component: PlateInventoryConfigTab },
   { id: 'plate-qr', label: 'Placas QR', icon: 'qr_code_2', component: PlateQrConfigTab },
+  { id: 'probar-qr', label: 'Probar QR', icon: 'qr_code_scanner', component: QrTesterConfigTab },
 ];
 
 const activeTab = ref('users');

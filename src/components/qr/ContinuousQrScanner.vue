@@ -109,6 +109,11 @@ const props = defineProps({
    * Debe retornar Promise<{ ok:boolean, already?:boolean, message?:string }>
    */
   onCommit: { type: Function, required: true },
+  /**
+   * Callback opcional con el resultado crudo de resolvePlateQr (probe / tester).
+   * @type {(result: object) => void}
+   */
+  onResolve: { type: Function, default: null },
 });
 
 const emit = defineEmits(['close']);
@@ -245,6 +250,8 @@ async function handlePayload(payload) {
 
   try {
     const resolved = await resolvePlateQr(payload);
+    props.onResolve?.(resolved);
+
     if (!resolved?.ok) {
       beep(false);
       pulse('err');
