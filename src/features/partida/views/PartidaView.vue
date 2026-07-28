@@ -391,6 +391,16 @@ function onRiderPresenceUpdated(e) {
   onRemotePresenceUpdated(e?.detail || {});
 }
 
+async function onCompetitionPhaseChanged(e) {
+  const detail = e?.detail || {};
+  const phase = detail.phase || detail.current_phase;
+  if (phase === 'practica' || phase === 'final') {
+    selectedPhase.value = phase;
+  }
+  await loadInitialData();
+  await loadRiders();
+}
+
 onMounted(async () => {
   await loadInitialData();
   await loadRiders();
@@ -403,6 +413,7 @@ onMounted(async () => {
   window.addEventListener('race-reset', handleReset);
   window.addEventListener('roll-call-started', onRollCallStarted);
   window.addEventListener('rider-presence-updated', onRiderPresenceUpdated);
+  window.addEventListener('competition-phase-changed', onCompetitionPhaseChanged);
 });
 
 onBeforeUnmount(() => {
@@ -414,6 +425,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('race-reset', handleReset);
   window.removeEventListener('roll-call-started', onRollCallStarted);
   window.removeEventListener('rider-presence-updated', onRiderPresenceUpdated);
+  window.removeEventListener('competition-phase-changed', onCompetitionPhaseChanged);
 });
 </script>
 

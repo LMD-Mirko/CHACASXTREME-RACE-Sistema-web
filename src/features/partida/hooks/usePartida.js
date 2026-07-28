@@ -79,6 +79,11 @@ export function usePartida() {
     isLoading.value = true;
     try {
       activeCompetition.value = await getActiveCompetition();
+      // Seguir la fase operativa del servidor (evita quedar atrapado en Clasificación cerrada)
+      const serverPhase = activeCompetition.value?.current_phase;
+      if (serverPhase === 'practica' || serverPhase === 'final') {
+        selectedPhase.value = serverPhase;
+      }
       const fetchedCategories = await getCategories();
       categories.value = [
         { id: 'all', name: '⚡ MEGA AVALANCHA (TODAS)' },
@@ -92,6 +97,17 @@ export function usePartida() {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  function pickActiveStartTime(startRecord) {
+    if (!startRecord) return null;
+    if (selectedPhase.value === 'practica') {
+      // Manga de clasificación ya cerrada → no reabrir cronómetro
+      if (startRecord.practice_closed_at) return null;
+      return startRecord.practice_start_time || null;
+    }
+    if (startRecord.final_closed_at) return null;
+    return startRecord.final_start_time || null;
   }
 
   async function loadRiders() {
@@ -116,21 +132,17 @@ export function usePartida() {
       if (activeCompetition.value?.category_starts) {
         let regTime = null;
         if (selectedCategoryId.value === 'all') {
-          const activeStarts = activeCompetition.value.category_starts.filter(
-            s => selectedPhase.value === 'practica' ? s.practice_start_time : s.final_start_time
-          );
+          const activeStarts = activeCompetition.value.category_starts
+            .map(pickActiveStartTime)
+            .filter(Boolean);
           if (activeStarts.length > 0) {
-            regTime = selectedPhase.value === 'practica'
-              ? activeStarts[0].practice_start_time
-              : activeStarts[0].final_start_time;
+            regTime = activeStarts[0];
           }
         } else {
           const startRecord = activeCompetition.value.category_starts.find(
             s => s.category_id === parseInt(selectedCategoryId.value)
           );
-          regTime = startRecord
-            ? (selectedPhase.value === 'practica' ? startRecord.practice_start_time : startRecord.final_start_time)
-            : null;
+          regTime = pickActiveStartTime(startRecord);
         }
 
         if (regTime) {
