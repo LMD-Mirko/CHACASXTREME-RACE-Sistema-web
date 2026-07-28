@@ -49,7 +49,7 @@
                   </button>
                 </div>
                 <p v-if="selectedPhase === 'final'" class="phase-hint-final">
-                  Solo clasificados. Todos salen marcados: marca únicamente a quienes no están.
+                  Pueden largar todos (hayan o no corrido clasificación). Marca solo a los ausentes.
                 </p>
               </div>
 

@@ -6,7 +6,6 @@ import {
   getRollCallState, updateRollCallPresence,
 } from '../services/partidaService';
 import { formatDeviceRaceTime, parseRaceTimeToEpoch } from '../../../core/time/raceTime';
-import api from '../../../core/network/axios';
 
 const activeCompetition = ref(null);
 const categories = ref([]);
@@ -27,7 +26,6 @@ const startTimeStr = ref('');
 const elapsedTimeMs = ref(0);
 const currentStep = ref(1);
 const isSyncingRiders = ref(false);
-const classifiedIds = ref(new Set());
 let animationFrameId = null;
 let modalTimeout = null;
 
@@ -96,28 +94,6 @@ export function usePartida() {
     }
   }
 
-  async function fetchClassifiedIds() {
-    if (!activeCompetition.value) {
-      classifiedIds.value = new Set();
-      return;
-    }
-    try {
-      const response = await api.get(
-        `/api/competitions/${activeCompetition.value.id}/classifications`,
-        { params: { phase: 'practica', category_id: 'all' } }
-      );
-      const rows = response.data.classifications || [];
-      // Clasificado = llegó a META en clasificación
-      const ids = rows
-        .filter(r => r.meta_time || r.status === 'LLEGÓ')
-        .map(r => r.id);
-      classifiedIds.value = new Set(ids);
-    } catch (err) {
-      console.error('Error cargando clasificados', err);
-      classifiedIds.value = new Set();
-    }
-  }
-
   async function loadRiders() {
     if (!selectedCategoryId.value) return;
     isLoading.value = true;
@@ -134,14 +110,8 @@ export function usePartida() {
         riders.value = await getRidersByCategory(selectedCategoryId.value);
       }
 
-      if (selectedPhase.value === 'final') {
-        await fetchClassifiedIds();
-        // Solo clasificados en grilla de final
-        riders.value = riders.value.filter(r => classifiedIds.value.has(r.id));
-        riders.value.forEach(r => {
-          if (r.race_status === 'DNS') r.race_status = 'pre_inscrito';
-        });
-      }
+      // Final: todos pueden largar (con o sin META en clasificación).
+      // Los tiempos de practica se conservan en backend y se muestran en Posición.
 
       if (activeCompetition.value?.category_starts) {
         let regTime = null;
@@ -192,8 +162,8 @@ export function usePartida() {
   }
 
   async function startRollCall() {
-    if (selectedPhase.value === 'final' && riders.value.length === 0) {
-      errorMessage.value = 'No hay clasificados para la Final. Completa la Clasificación primero.';
+    if (riders.value.length === 0) {
+      errorMessage.value = 'No hay competidores en la grilla para esta salida.';
       return;
     }
     currentStep.value = 2;

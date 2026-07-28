@@ -187,7 +187,7 @@ async function handleUpdatePhase(phase) {
 async function handlePrepareFinal() {
   if (!activeComp.value) return;
   const ok = confirm(
-    '¿Cerrar Clasificación y abrir Final?\n\nSolo quienes tienen META en clasificación entrarán a la grilla. No se borran tiempos de clasificación.'
+    '¿Cerrar Clasificación y abrir Final?\n\nPueden largar todos los inscritos (también quienes no corrieron clasificación). No se borran los tiempos de clasificación.'
   );
   if (!ok) return;
 
