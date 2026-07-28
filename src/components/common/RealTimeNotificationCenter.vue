@@ -1,78 +1,6 @@
 <template>
   <div class="notification-center-container">
     
-    <!-- 1. MODAL CENTRAL PREMIUM (Paso por Checkpoint Intermedio / Punto Medio) -->
-    <Transition name="modal-scale">
-      <div v-if="checkpointAlert" class="modal-overlay-glow">
-        <div class="checkpoint-premium-modal">
-          <!-- Efecto de resplandor superior -->
-          <div class="glow-header animate-pulse-glow"></div>
-          
-          <div class="modal-body">
-            <!-- Icono animado -->
-            <div class="badge-icon-container">
-              <span class="material-icons animate-bounce-subtle">query_builder</span>
-            </div>
-            
-            <h4 class="modal-subtitle">Punto de Control: {{ checkpointAlert.checkpoint_name }}</h4>
-            
-            <!-- Placa en grande -->
-            <div class="plate-number-display">
-              <span class="hash-symbol">#</span>{{ checkpointAlert.plate_number }}
-            </div>
-            
-            <!-- Datos del competidor -->
-            <h2 class="rider-full-name">{{ checkpointAlert.full_name }}</h2>
-            <p class="rider-team-name">
-              <span class="material-icons info-small-icon">group</span>
-              {{ checkpointAlert.club_team || 'Ninguno' }}
-            </p>
-            
-            <!-- Categoría -->
-            <div class="category-capsule">
-              {{ checkpointAlert.category_name }}
-            </div>
-
-            <!-- Tiempos -->
-            <div class="times-summary-grid">
-              <div class="time-item-box">
-                <span class="time-lbl">Hora de Registro</span>
-                <strong class="time-val">{{ formatTimeOnly(checkpointAlert.exact_time) }}</strong>
-              </div>
-              <div class="time-item-box time-item-box--primary">
-                <span class="time-lbl">Tiempo Transcurrido</span>
-                <strong class="time-val time-val--highlight">{{ checkpointAlert.elapsed_time || 'N/A' }}</strong>
-              </div>
-            </div>
-          </div>
-
-          <!-- Barra de progreso autocierre -->
-          <div class="autoclose-progress-bar">
-            <div class="progress-fill"></div>
-          </div>
-          
-          <button class="modal-dismiss-btn" @click="checkpointAlert = null">
-            <span class="material-icons">close</span>
-          </button>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- 1b. MINI TOAST EN ESQUINA PARA EL EMISOR DEL CHECKPOINT -->
-    <Transition name="toast-slide-right">
-      <div v-if="senderPassToast" class="sender-pass-toast">
-        <div class="sender-toast-indicator"></div>
-        <span class="material-icons sender-toast-icon">check_circle</span>
-        <div class="sender-toast-body">
-          <span class="sender-toast-plate">#{{ senderPassToast.plate_number }}</span>
-          <div class="sender-toast-text">
-            <h5 class="sender-toast-name">{{ senderPassToast.full_name }}</h5>
-            <p class="sender-toast-time">Registro: {{ formatTimeOnly(senderPassToast.exact_time) }}</p>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- 2. DRAWER/MODAL LATERAL PREMIUM PARA ADMINS (Asignación en Meta) -->
     <Transition name="drawer-slide">
       <div v-if="adminFinishedAlert" class="admin-finished-drawer">
@@ -312,8 +240,6 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { formatTimeOnly } from '../../core/time/raceTime';
 import { onRaceEvent, ensureRaceChannels } from '../../core/network/raceRealtime';
 
-const checkpointAlert = ref(null);
-const senderPassToast = ref(null);
 const adminFinishedAlert = ref(null);
 const generalFinishedAlert = ref(null);
 const metaFreezedAlert = ref(null);
@@ -330,7 +256,6 @@ const getLiveStrokeDashArray = computed(() => {
 });
 
 let unsubscribes = [];
-let checkpointTimeout = null;
 let adminFinishedTimeout = null;
 let generalFinishedTimeout = null;
 let metaFreezedTimeout = null;
@@ -345,24 +270,6 @@ function dismissCountdown() {
     countdownInterval = null;
   }
   liveCountdownVal.value = null;
-}
-
-function playPassSound() {
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
-    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.4);
-  } catch (e) {
-    console.error('Audio play error', e);
-  }
 }
 
 function playSenderPassSound() {
@@ -463,8 +370,6 @@ onMounted(() => {
   });
 
   // Limpiar overlays huérfanos (HMR / eventos a medias) que dejan la pantalla negra
-  checkpointAlert.value = null;
-  senderPassToast.value = null;
   adminFinishedAlert.value = null;
   generalFinishedAlert.value = null;
   metaFreezedAlert.value = null;
@@ -478,29 +383,9 @@ onMounted(() => {
     if (typeof off === 'function') unsubscribes.push(off);
   };
 
-  // 1. Canal race-mountain
+  // 1. Canal race-mountain — reenvía el pase a vistas; sin modal/toast visual
   track(onRaceEvent('mountain', '.RiderPassedCheckpoint', (e) => {
     window.dispatchEvent(new CustomEvent('rider-passed-checkpoint', { detail: e }));
-
-    const myRole = userRole.value?.toUpperCase();
-    const myCheckpointName = localStorage.getItem('checkpoint_name') || 'Control Intermedio';
-    const isMyCheckpoint = e.checkpoint_name?.toUpperCase() === myCheckpointName.toUpperCase();
-
-    if (myRole === 'INTERMEDIO' && isMyCheckpoint) {
-      senderPassToast.value = e;
-      playSenderPassSound();
-      if (checkpointTimeout) clearTimeout(checkpointTimeout);
-      checkpointTimeout = setTimeout(() => {
-        senderPassToast.value = null;
-      }, 4000);
-    } else {
-      checkpointAlert.value = e;
-      playPassSound();
-      if (checkpointTimeout) clearTimeout(checkpointTimeout);
-      checkpointTimeout = setTimeout(() => {
-        checkpointAlert.value = null;
-      }, 5000);
-    }
   }));
 
   track(onRaceEvent('mountain', '.RiderIncidentReported', (e) => {
@@ -650,7 +535,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (checkpointTimeout) clearTimeout(checkpointTimeout);
   if (adminFinishedTimeout) clearTimeout(adminFinishedTimeout);
   if (generalFinishedTimeout) clearTimeout(generalFinishedTimeout);
   if (metaFreezedTimeout) clearTimeout(metaFreezedTimeout);
@@ -679,7 +563,7 @@ onBeforeUnmount(() => {
 }
 
 /* ==========================================================================
-   1. MODAL CENTRAL PREMIUM (Paso por Checkpoint Intermedio)
+   1. MODAL CENTRAL PREMIUM (Grilla confirmada / overlays compartidos)
    ========================================================================== */
 .modal-overlay-glow {
   position: fixed;
@@ -752,128 +636,6 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
 }
 
-.plate-number-display {
-  font-family: var(--font-headings);
-  font-size: 64px;
-  font-weight: 900;
-  color: var(--color-primary);
-  line-height: 1;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  letter-spacing: -2px;
-}
-
-.hash-symbol {
-  font-size: 32px;
-  opacity: 0.6;
-  margin-right: 2px;
-  margin-top: 6px;
-}
-
-.rider-full-name {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--color-text-primary);
-  text-transform: uppercase;
-  margin-bottom: 4px;
-  line-height: 1.2;
-}
-
-.rider-team-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 20px;
-}
-
-.info-small-icon {
-  font-size: 16px;
-  color: var(--color-text-secondary);
-}
-
-.category-capsule {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: var(--color-input-bg);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  padding: 4px 12px;
-  border-radius: 30px;
-  margin-bottom: 24px;
-}
-
-/* Grilla de Tiempos */
-.times-summary-grid {
-  display: flex;
-  width: 100%;
-  gap: 12px;
-}
-
-.time-item-box {
-  flex: 1;
-  background: var(--color-input-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.time-item-box--primary {
-  border-color: rgba(255, 94, 0, 0.25);
-  background: rgba(255, 94, 0, 0.03);
-}
-
-.time-lbl {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.time-val {
-  font-size: 15px;
-  font-weight: 800;
-  font-family: monospace;
-  color: var(--color-text-primary);
-}
-
-.time-val--highlight {
-  color: var(--color-primary);
-  font-size: 16px;
-}
-
-/* Barra de progreso de autocierre */
-.autoclose-progress-bar {
-  width: 100%;
-  height: 4px;
-  background: var(--color-border);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  width: 100%;
-  background: var(--color-primary);
-  animation: shrink-width 5s linear forwards;
-  transform-origin: left;
-}
-
-@keyframes shrink-width {
-  from { transform: scaleX(1); }
-  to { transform: scaleX(0); }
-}
-
 .modal-dismiss-btn {
   position: absolute;
   top: 16px;
@@ -895,9 +657,6 @@ onBeforeUnmount(() => {
   color: var(--color-primary);
 }
 
-/* ==========================================================================
-   2. DRAWER/MODAL LATERAL (Asignación en Meta para Administradores)
-   ========================================================================== */
 /* ==========================================================================
    2. DRAWER/MODAL LATERAL (Asignación en Meta para Administradores)
    ========================================================================== */
@@ -1280,8 +1039,7 @@ onBeforeUnmount(() => {
 @media (max-width: 767px) {
   .general-finished-toast,
   .meta-freezed-toast,
-  .race-reset-toast,
-  .sender-pass-toast {
+  .race-reset-toast {
     top: calc(12px + env(safe-area-inset-top, 0px)) !important;
     bottom: auto !important;
     left: 16px !important;
@@ -1301,17 +1059,6 @@ onBeforeUnmount(() => {
     border-radius: 20px 20px 0 0 !important;
     max-height: min(88dvh, 720px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .plate-number-display {
-    font-size: clamp(40px, 14vw, 64px);
-    max-width: 100%;
-  }
-
-  .rider-full-name {
-    font-size: clamp(18px, 5.5vw, 24px);
-    word-break: break-word;
-    max-width: 100%;
   }
 
   .checkpoint-premium-modal {
@@ -1504,18 +1251,8 @@ onBeforeUnmount(() => {
   border-top-color: rgba(255, 255, 255, 0.06) !important;
 }
 
-.dark-theme .time-item-box {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-}
-
 .dark-theme .rider-card-horizontal,
 .dark-theme .drawer-details-grid {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-.dark-theme .category-capsule {
   background-color: rgba(255, 255, 255, 0.03) !important;
   border-color: rgba(255, 255, 255, 0.06) !important;
 }
@@ -1895,125 +1632,5 @@ onBeforeUnmount(() => {
 @keyframes sensor-ping-anim {
   from { opacity: 0.3; transform: scale(0.9); }
   to { opacity: 1; transform: scale(1.3); }
-}
-
-/* ==========================================================================
-   8. MINI TOAST EN ESQUINA PARA EMISOR (CheckpointPass)
-   ========================================================================== */
-.sender-pass-toast {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  width: 300px;
-  background: rgba(20, 20, 25, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 12px;
-  padding: 10px 14px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 10px rgba(16, 185, 129, 0.1);
-  color: #FFFFFF;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 12500;
-  pointer-events: auto;
-}
-
-.sender-toast-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: #10B981;
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-}
-
-.sender-toast-icon {
-  color: #10B981;
-  font-size: 22px;
-  animation: scale-up-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.sender-toast-body {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.sender-toast-plate {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-  color: #10B981;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  padding: 2px 6px;
-  border-radius: 6px;
-  min-width: 38px;
-  text-align: center;
-}
-
-.sender-toast-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-}
-
-.sender-toast-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: #FFFFFF;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-
-.sender-toast-time {
-  font-size: 10px;
-  color: #94A3B8;
-  margin: 0;
-}
-
-/* Transición para deslizar desde la derecha */
-.toast-slide-right-enter-active {
-  animation: slide-in-right-toast 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
-
-.toast-slide-right-leave-active {
-  animation: slide-out-right-toast 0.25s ease-in forwards;
-}
-
-@keyframes slide-in-right-toast {
-  from {
-    transform: translateX(120%) scale(0.9);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0) scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes slide-out-right-toast {
-  from {
-    transform: translateX(0) scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(120%) scale(0.9);
-    opacity: 0;
-  }
-}
-
-@keyframes scale-up-bounce {
-  from { transform: scale(0.5); }
-  to { transform: scale(1); }
 }
 </style>
