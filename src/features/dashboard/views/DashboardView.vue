@@ -104,7 +104,7 @@ import api from '../../../core/network/axios';
 import { syncServerClock } from '../../../core/time/raceTime';
 import { useStaffChat } from '../composables/useStaffChat';
 
-const ADMIN_MOBILE_ALLOWED = ['competidores', 'entrega-placas', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
+const ADMIN_MOBILE_ALLOWED = ['competidores', 'entrega-placas', 'checkpoint', 'camarografos', 'clasificar-media', 'posicion', 'configuracion'];
 
 const isSidebarOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 1023px)');

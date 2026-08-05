@@ -4,6 +4,10 @@
       <div>
         <h2>Media 4ª edición — ZIP</h2>
         <p>Descarga originales de la competencia activa (igual que en Filament).</p>
+        <router-link class="classify-link" to="/dashboard/clasificar-media">
+          <span class="material-icons">playlist_add_check</span>
+          Clasificar media General → competidores
+        </router-link>
       </div>
       <AppButton variant="secondary" :disabled="loading" @click="load">
         <span class="material-icons">refresh</span>
@@ -233,5 +237,24 @@ onMounted(load);
 
 .muted {
   color: var(--color-text-secondary);
+}
+
+.classify-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.classify-link:hover {
+  text-decoration: underline;
+}
+
+.classify-link .material-icons {
+  font-size: 18px;
 }
 </style>

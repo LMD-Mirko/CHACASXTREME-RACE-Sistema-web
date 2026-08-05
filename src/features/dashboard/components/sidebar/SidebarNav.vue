@@ -37,6 +37,7 @@ const allItems = {
   competidores: { name: 'competidores',        path: '/dashboard/competidores',        icon: 'group',         label: 'Competidores' },
   entregaPlacas: { name: 'entrega-placas',     path: '/dashboard/entrega-placas',      icon: 'inventory_2',   label: 'Entrega placas' },
   camarografos: { name: 'camarografos',        path: '/dashboard/camarografos',        icon: 'photo_camera',  label: 'Camarógrafos' },
+  clasificarMedia: { name: 'clasificar-media', path: '/dashboard/clasificar-media',    icon: 'playlist_add_check', label: 'Clasificar media' },
   configuracion: { name: 'configuracion',       path: '/dashboard/configuracion',       icon: 'settings',      label: 'Configuración' },
   posicion:     { name: 'posicion',            path: '/dashboard/posicion',            icon: 'sports_score',  label: 'Posición' },
 };
@@ -60,6 +61,7 @@ const filteredNavItems = computed(() => {
     allItems.competidores,
     allItems.entregaPlacas,
     allItems.camarografos,
+    allItems.clasificarMedia,
     allItems.posicion,
     allItems.configuracion
   ];

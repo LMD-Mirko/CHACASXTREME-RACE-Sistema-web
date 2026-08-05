@@ -64,6 +64,11 @@ const routes = [
         component: () => import('../features/camarografos/views/PhotographersView.vue'),
       },
       {
+        path: 'clasificar-media',
+        name: 'clasificar-media',
+        component: () => import('../features/clasificar-media/views/ClasificarMediaView.vue'),
+      },
+      {
         path: 'posicion',
         name: 'posicion',
         component: () => import('../features/classification/views/ClassificationView.vue'),
@@ -101,7 +106,7 @@ const ROLE_ALLOWED_ROUTES = {
 };
 
 /** En teléfono el ADMIN gestiona + puede abrir checkpoint para pruebas Intermedio. */
-const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'entrega-placas', 'checkpoint', 'camarografos', 'posicion', 'configuracion'];
+const ADMIN_MOBILE_ALLOWED_ROUTES = ['competidores', 'entrega-placas', 'checkpoint', 'camarografos', 'clasificar-media', 'posicion', 'configuracion'];
 const ADMIN_MOBILE_DEFAULT = '/dashboard/competidores';
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 

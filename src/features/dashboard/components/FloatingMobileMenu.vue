@@ -120,6 +120,7 @@ const menuItems = computed(() => {
     competidores: { name: 'competidores', path: '/dashboard/competidores', icon: 'group', label: 'Corredores' },
     entregaPlacas: { name: 'entrega-placas', path: '/dashboard/entrega-placas', icon: 'inventory_2', label: 'Entrega' },
     camarografos: { name: 'camarografos', path: '/dashboard/camarografos', icon: 'photo_camera', label: 'Cámaras' },
+    clasificarMedia: { name: 'clasificar-media', path: '/dashboard/clasificar-media', icon: 'playlist_add_check', label: 'Clasificar' },
     posicion: { name: 'posicion', path: '/dashboard/posicion', icon: 'sports_score', label: 'Posición' },
     configuracion: { name: 'configuracion', path: '/dashboard/configuracion', icon: 'settings', label: 'Config' },
     checkpoint: { name: 'checkpoint', path: '/dashboard/checkpoint', icon: 'location_on', label: 'Checkpoint' },
@@ -140,7 +141,7 @@ const menuItems = computed(() => {
     return [
       allItems.competidores,
       allItems.entregaPlacas,
-      allItems.checkpoint,
+      allItems.clasificarMedia,
       chat,
       allItems.posicion,
       allItems.configuracion,
