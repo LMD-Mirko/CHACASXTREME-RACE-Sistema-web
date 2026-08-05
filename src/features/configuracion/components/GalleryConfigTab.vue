@@ -27,8 +27,56 @@
           <AppButton variant="danger" @click="remove(item)">Eliminar</AppButton>
         </div>
       </article>
-      <p v-if="!items.length" class="muted">No hay imágenes aún.</p>
+      <p v-if="!items.length" class="muted">No hay imágenes de marketing aún.</p>
     </div>
+
+    <!-- Subidas del público → race_media General -->
+    <section class="public-block">
+      <header class="media-head media-head--sub">
+        <div>
+          <h2>Subidas del público</h2>
+          <p>
+            Fotos enviadas desde la web a <strong>General</strong>.
+            Acá las podés revisar y borrar.
+          </p>
+        </div>
+        <AppButton variant="secondary" :disabled="publicLoading" @click="loadPublic">
+          <span class="material-icons">refresh</span>
+          Actualizar
+        </AppButton>
+      </header>
+
+      <p v-if="publicError" class="error">{{ publicError }}</p>
+      <div v-if="publicLoading && !publicItems.length" class="muted">Cargando subidas públicas…</div>
+
+      <div v-else class="grid">
+        <article v-for="item in publicItems" :key="'p-' + item.id" class="thumb">
+          <img
+            :src="publicThumb(item)"
+            :alt="item.original_filename || 'Foto pública'"
+          />
+          <div class="info">
+            <strong>{{ item.photographer?.full_name || 'Anónimo' }}</strong>
+            <span>
+              Público · General
+              <template v-if="publicIg(item)"> · @{{ publicIg(item) }}</template>
+            </span>
+          </div>
+          <div class="actions">
+            <AppButton variant="danger" :disabled="deletingId === item.id" @click="removePublic(item)">
+              {{ deletingId === item.id ? 'Eliminando…' : 'Eliminar' }}
+            </AppButton>
+          </div>
+        </article>
+        <p v-if="!publicItems.length" class="muted">Nadie subió fotos públicas todavía.</p>
+      </div>
+
+      <div v-if="publicHasMore" class="public-more">
+        <AppButton variant="secondary" :disabled="publicLoading" @click="loadMorePublic">
+          {{ publicLoading ? 'Cargando…' : 'Ver más' }}
+        </AppButton>
+      </div>
+    </section>
 
     <!-- Subida masiva: solo categoría + varias fotos -->
     <AppModal
@@ -179,7 +227,10 @@ import {
   createGalleryItem,
   updateGalleryItem,
   deleteGalleryItem,
+  listRaceMediaGeneralPhotos,
+  deleteRaceMedia,
 } from '../services/mediaAdminService.js';
+import { storageUrl } from '../../../core/network/storageUrl.js';
 
 const MAX_FILES = 60;
 
@@ -191,6 +242,13 @@ const error = ref('');
 const toast = ref('');
 const modalError = ref('');
 const progress = ref('');
+
+const publicItems = ref([]);
+const publicLoading = ref(false);
+const publicError = ref('');
+const publicPage = ref(1);
+const publicLastPage = ref(1);
+const deletingId = ref(null);
 
 const createOpen = ref(false);
 const editOpen = ref(false);
@@ -220,6 +278,7 @@ const editPreview = computed(
 );
 
 const editFileName = computed(() => editImageFile.value?.name || '');
+const publicHasMore = computed(() => publicPage.value < publicLastPage.value);
 
 async function load() {
   loading.value = true;
@@ -232,6 +291,55 @@ async function load() {
     error.value = e.friendlyMessage || e.message || 'No se pudo cargar.';
   } finally {
     loading.value = false;
+  }
+  loadPublic();
+}
+
+function publicThumb(item) {
+  return storageUrl(item?.thumb_url || item?.view_url || '');
+}
+
+function publicIg(item) {
+  const ig = item?.photographer?.instagram;
+  if (!ig || String(ig).startsWith('__public_')) return '';
+  return ig;
+}
+
+async function loadPublic({ append = false } = {}) {
+  publicLoading.value = true;
+  publicError.value = '';
+  try {
+    const page = append ? publicPage.value + 1 : 1;
+    const res = await listRaceMediaGeneralPhotos({ page, perPage: 24 });
+    publicItems.value = append ? [...publicItems.value, ...res.items] : res.items;
+    publicPage.value = res.meta?.current_page || page;
+    publicLastPage.value = res.meta?.last_page || 1;
+  } catch (e) {
+    if (!append) publicItems.value = [];
+    publicError.value = e.friendlyMessage || e.message || 'No se pudieron cargar las subidas públicas.';
+  } finally {
+    publicLoading.value = false;
+  }
+}
+
+function loadMorePublic() {
+  if (!publicHasMore.value || publicLoading.value) return;
+  loadPublic({ append: true });
+}
+
+async function removePublic(item) {
+  if (!confirm(`¿Eliminar la foto de ${item.photographer?.full_name || 'público'}?`)) return;
+  deletingId.value = item.id;
+  publicError.value = '';
+  try {
+    await deleteRaceMedia(item.id);
+    publicItems.value = publicItems.value.filter((x) => x.id !== item.id);
+    toast.value = 'Foto pública eliminada.';
+    setTimeout(() => { toast.value = ''; }, 2500);
+  } catch (e) {
+    publicError.value = e.friendlyMessage || e.message || 'No se pudo eliminar.';
+  } finally {
+    deletingId.value = null;
   }
 }
 
@@ -444,6 +552,23 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.88rem;
+}
+
+.media-head--sub {
+  margin-top: 0.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.public-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.public-more {
+  display: flex;
+  justify-content: center;
 }
 
 .grid {

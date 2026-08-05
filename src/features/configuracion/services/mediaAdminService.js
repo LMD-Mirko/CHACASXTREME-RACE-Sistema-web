@@ -63,6 +63,28 @@ export async function deleteGalleryItem(id) {
   return data;
 }
 
+/** Fotos General de carrera (incluye subidas públicas). */
+export async function listRaceMediaGeneralPhotos({ page = 1, perPage = 48 } = {}) {
+  const { data } = await api.get('/api/admin/race-media', {
+    params: {
+      scope: 'general',
+      media_type: 'photo',
+      page,
+      per_page: perPage,
+    },
+  });
+  return {
+    items: data.data || [],
+    meta: data.meta || {},
+    counts: data.counts || {},
+  };
+}
+
+export async function deleteRaceMedia(id) {
+  const { data } = await api.delete(`/api/admin/race-media/${id}`);
+  return data;
+}
+
 // ─── Media carrera Edición 4 (ZIP) ───────────────────────────────────────────
 export async function fetchEdition4MediaStats() {
   const { data } = await api.get('/api/admin/edition4-media/stats');
