@@ -184,9 +184,7 @@
                 :src="thumbUrl(item)"
                 :alt="item.original_filename || 'media'"
                 class="thumb-media"
-                :class="thumbRotateClass(item)"
                 loading="lazy"
-                @load="onThumbLoad($event, item)"
               />
               <div v-else class="thumb-media thumb-media--video">
                 <span class="material-icons">play_circle</span>
@@ -393,10 +391,6 @@ import { useClassifyMedia } from '../composables/useClassifyMedia.js';
 const mobilePane = ref('preview');
 const videoError = ref('');
 const previewOrient = ref('landscape'); // landscape | portrait
-/** Orientación real de los píxeles del archivo que se está reproduciendo. */
-const pixelOrient = ref(null);
-/** Thumbs que cargaron en landscape aunque la API diga portrait. */
-const sidewaysThumbs = ref({});
 
 const previewOrientClass = computed(() => (
   previewOrient.value === 'portrait' ? 'is-portrait' : 'is-landscape'
@@ -406,25 +400,17 @@ const orientLabel = computed(() => (
   previewOrient.value === 'portrait' ? 'Vertical' : 'Horizontal'
 ));
 
-function intendedOrientation(item) {
-  if (!item) return null;
-  const r = Math.abs(Number(item.rotation) || 0) % 360;
-  if (r === 90 || r === 270) return 'portrait';
-  if (item.orientation === 'portrait' || item.orientation === 'landscape') {
-    return item.orientation;
-  }
-  return null;
-}
-
-function applyItemOrientation(item, fromPixels) {
-  const intended = intendedOrientation(item);
-  // Si el metadato dice vertical (rotate 90/270), no dejamos que un preview
-  // web viejo en landscape vuelva a marcar "Horizontal".
-  if (intended) {
-    previewOrient.value = intended;
+function applyItemOrientation(item, pixelOrient) {
+  if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
+    // Preview web ya trae píxeles upright → confiar en el frame real.
+    if (item.has_web_preview && pixelOrient) {
+      previewOrient.value = pixelOrient;
+      return;
+    }
+    previewOrient.value = item.orientation;
     return;
   }
-  previewOrient.value = fromPixels || 'landscape';
+  previewOrient.value = pixelOrient || 'landscape';
 }
 
 function onVideoError() {
@@ -435,9 +421,8 @@ function onPreviewMeta(e) {
   const el = e?.target;
   const w = Number(el?.videoWidth) || 0;
   const h = Number(el?.videoHeight) || 0;
-  const fromPixels = h > w ? 'portrait' : 'landscape';
-  pixelOrient.value = fromPixels;
-  applyItemOrientation(current.value, fromPixels);
+  const pixelOrient = h > w ? 'portrait' : 'landscape';
+  applyItemOrientation(current.value, pixelOrient);
   videoError.value = '';
 }
 
@@ -445,25 +430,7 @@ function onImageOrient(e) {
   const el = e?.target;
   const w = Number(el?.naturalWidth) || 0;
   const h = Number(el?.naturalHeight) || 0;
-  const fromPixels = h > w ? 'portrait' : 'landscape';
-  pixelOrient.value = fromPixels;
-  applyItemOrientation(current.value, fromPixels);
-}
-
-function onThumbLoad(e, item) {
-  const el = e?.target;
-  const w = Number(el?.naturalWidth) || 0;
-  const h = Number(el?.naturalHeight) || 0;
-  if (!item?.id || !w || !h) return;
-  const intended = intendedOrientation(item);
-  const sideways = intended === 'portrait' && w > h;
-  if (sidewaysThumbs.value[item.id] === sideways) return;
-  sidewaysThumbs.value = { ...sidewaysThumbs.value, [item.id]: sideways };
-}
-
-function thumbRotateClass(item) {
-  if (sidewaysThumbs.value[item.id]) return 'needs-rotate-270';
-  return '';
+  previewOrient.value = h > w ? 'portrait' : 'landscape';
 }
 
 const {
@@ -505,30 +472,14 @@ const {
   formatWhen,
 } = useClassifyMedia();
 
-/**
- * Rota el video en pantalla si los píxeles siguen “deitados”
- * (preview viejo u original sin autorotate) pero el metadato es vertical.
- */
+/** Solo al reproducir el original: el navegador a veces ignora rotate=90/270. */
 const videoRotateClass = computed(() => {
   const item = current.value;
-  if (!item || item.media_type !== 'video') return '';
-  const intended = intendedOrientation(item);
-  const pixels = pixelOrient.value;
-  if (intended === 'portrait' && pixels === 'landscape') {
-    const r = Math.abs(Number(item.rotation) || 0) % 360;
-    if (r === 90) return 'needs-rotate-90';
-    return 'needs-rotate-270';
-  }
-  if (intended === 'landscape' && pixels === 'portrait') {
-    return 'needs-rotate-90';
-  }
-  // Original sin preview web: el navegador a menudo ignora rotate.
-  if (!item.has_web_preview && !pixels) {
-    const r = Math.abs(Number(item.rotation) || 0) % 360;
-    if (r === 90) return 'needs-rotate-90';
-    if (r === 270) return 'needs-rotate-270';
-    if (r === 180) return 'needs-rotate-180';
-  }
+  if (!item || item.media_type !== 'video' || item.has_web_preview) return '';
+  const r = Math.abs(Number(item.rotation) || 0) % 360;
+  if (r === 90) return 'needs-rotate-90';
+  if (r === 270) return 'needs-rotate-270';
+  if (r === 180) return 'needs-rotate-180';
   return '';
 });
 
@@ -559,10 +510,12 @@ watch(
   () => current.value?.id,
   () => {
     videoError.value = '';
-    pixelOrient.value = null;
     const item = current.value;
-    const intended = intendedOrientation(item);
-    previewOrient.value = intended || 'landscape';
+    if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
+      previewOrient.value = item.orientation;
+    } else {
+      previewOrient.value = 'landscape';
+    }
   },
 );
 </script>
@@ -871,25 +824,6 @@ watch(
   pointer-events: none;
 }
 
-.thumb-media.needs-rotate-90,
-.thumb-media.needs-rotate-270,
-.thumb-media.needs-rotate-180 {
-  object-fit: contain;
-  background: #0a0a0a;
-}
-
-.thumb-media.needs-rotate-90 {
-  transform: rotate(90deg) scale(1.35);
-}
-
-.thumb-media.needs-rotate-270 {
-  transform: rotate(-90deg) scale(1.35);
-}
-
-.thumb-media.needs-rotate-180 {
-  transform: rotate(180deg);
-}
-
 .thumb-media--video {
   display: grid;
   place-items: center;
@@ -1060,27 +994,15 @@ watch(
   background: #000;
 }
 
-/* Metadato vertical + píxeles landscape (preview viejo u original) */
+/* Originales con metadata rotate que el navegador no aplica */
 .preview-media.needs-rotate-90 {
   transform: rotate(90deg);
-  max-width: min(58vh, 560px);
-  max-height: 100%;
-  width: auto;
 }
 .preview-media.needs-rotate-270 {
   transform: rotate(-90deg);
-  max-width: min(58vh, 560px);
-  max-height: 100%;
-  width: auto;
 }
 .preview-media.needs-rotate-180 {
   transform: rotate(180deg);
-}
-
-.preview-stage.is-portrait .preview-media.needs-rotate-90,
-.preview-stage.is-portrait .preview-media.needs-rotate-270 {
-  max-height: min(70vh, 640px);
-  width: auto;
 }
 
 .preview-media.is-landscape,
