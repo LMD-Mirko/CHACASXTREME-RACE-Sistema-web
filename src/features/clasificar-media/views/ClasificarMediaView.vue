@@ -248,14 +248,9 @@
               <p class="preview-error-hint">
                 Suele pasar con HEVC (iPhone/reels) o XAVC de cámara (~90 Mbps, moov al final).
               </p>
-              <a
-                class="preview-open"
-                :href="mediaPreviewUrl(current)"
-                target="_blank"
-                rel="noopener"
-              >
-                Abrir / descargar original
-              </a>
+              <button type="button" class="preview-open" :disabled="downloading" @click="downloadOriginal(current)">
+                {{ downloading ? 'Descargando…' : 'Descargar original' }}
+              </button>
             </div>
           </div>
 
@@ -272,6 +267,33 @@
               <span class="chip chip--orient">{{ orientLabel }}</span>
               <span class="meta-pos">{{ globalIndex }} / {{ meta.total }}</span>
             </div>
+
+            <p v-if="current.has_web_preview" class="preview-quality-hint">
+              Vista previa comprimida solo para ver en el navegador.
+              <strong>Descarga el original</strong> para máxima calidad (tal como lo subió el camarógrafo).
+            </p>
+
+            <div class="preview-actions">
+              <button
+                type="button"
+                class="tool-btn"
+                :title="previewOrient === 'portrait' ? 'Ver en horizontal' : 'Ver en vertical'"
+                @click="toggleOrient"
+              >
+                <span class="material-icons">{{ previewOrient === 'portrait' ? 'stay_current_landscape' : 'stay_current_portrait' }}</span>
+                {{ previewOrient === 'portrait' ? 'Horizontal' : 'Vertical' }}
+              </button>
+              <button
+                type="button"
+                class="tool-btn tool-btn--dl"
+                :disabled="downloading"
+                @click="downloadOriginal(current)"
+              >
+                <span class="material-icons">{{ downloading ? 'hourglass_top' : 'download' }}</span>
+                {{ downloading ? 'Descargando…' : 'Descargar original' }}
+              </button>
+            </div>
+
             <div class="meta-details">
               <span>
                 <span class="material-icons">person</span>
@@ -391,6 +413,8 @@ import { useClassifyMedia } from '../composables/useClassifyMedia.js';
 const mobilePane = ref('preview');
 const videoError = ref('');
 const previewOrient = ref('landscape'); // landscape | portrait
+const orientManual = ref(false);
+const measuredOrient = ref(null); // landscape | portrait | null
 
 const previewOrientClass = computed(() => (
   previewOrient.value === 'portrait' ? 'is-portrait' : 'is-landscape'
@@ -400,7 +424,14 @@ const orientLabel = computed(() => (
   previewOrient.value === 'portrait' ? 'Vertical' : 'Horizontal'
 ));
 
+function toggleOrient() {
+  orientManual.value = true;
+  previewOrient.value = previewOrient.value === 'portrait' ? 'landscape' : 'portrait';
+}
+
 function applyItemOrientation(item, pixelOrient) {
+  measuredOrient.value = pixelOrient || null;
+  if (orientManual.value) return;
   // Preview web ya upright → siempre confiar en píxeles reales.
   if (item?.has_web_preview && pixelOrient) {
     previewOrient.value = pixelOrient;
@@ -430,13 +461,17 @@ function onImageOrient(e) {
   const el = e?.target;
   const w = Number(el?.naturalWidth) || 0;
   const h = Number(el?.naturalHeight) || 0;
-  previewOrient.value = h > w ? 'portrait' : 'landscape';
+  const pixelOrient = h > w ? 'portrait' : 'landscape';
+  measuredOrient.value = pixelOrient;
+  if (orientManual.value) return;
+  previewOrient.value = pixelOrient;
 }
 
 const {
   PAGE_SIZE,
   loading,
   assigning,
+  downloading,
   error,
   toast,
   competition,
@@ -468,14 +503,22 @@ const {
   nextPage,
   prevPage,
   mediaPreviewUrl,
+  downloadOriginal,
   formatBytes,
   formatWhen,
 } = useClassifyMedia();
 
-/** Solo al reproducir el original: el navegador a veces ignora rotate=90/270. */
+/** CSS rotate: original con metadata, o override manual vs píxeles del archivo. */
 const videoRotateClass = computed(() => {
   const item = current.value;
-  if (!item || item.media_type !== 'video' || item.has_web_preview) return '';
+  if (!item || item.media_type !== 'video') return '';
+
+  if (orientManual.value && measuredOrient.value && previewOrient.value !== measuredOrient.value) {
+    // Usuario pide el otro marco → girar 90° para enderezar contenido de costado.
+    return 'needs-rotate-270';
+  }
+
+  if (item.has_web_preview) return '';
   const r = Math.abs(Number(item.rotation) || 0) % 360;
   if (r === 90) return 'needs-rotate-90';
   if (r === 270) return 'needs-rotate-270';
@@ -510,6 +553,8 @@ watch(
   () => current.value?.id,
   () => {
     videoError.value = '';
+    orientManual.value = false;
+    measuredOrient.value = null;
     const item = current.value;
     // Con preview web, no forzar portrait por metadata; loadedmetadata corrige.
     if (item?.has_web_preview) {
@@ -923,6 +968,16 @@ watch(
   color: #fdba74;
   font-weight: 700;
   font-size: 13px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.preview-open:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .thumb-idx {
@@ -1064,6 +1119,34 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.preview-quality-hint {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-secondary) 12%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.preview-quality-hint strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tool-btn--dl {
+  background: color-mix(in srgb, var(--color-secondary) 22%, transparent);
+  border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
+  color: var(--color-text-primary);
+  font-weight: 700;
 }
 
 .meta-row {

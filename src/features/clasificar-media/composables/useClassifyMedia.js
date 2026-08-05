@@ -2,6 +2,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   assignRaceMedia,
   assignRaceMediaBulk,
+  downloadAdminRaceMediaOriginal,
   listAdminRaceMedia,
   searchRidersForAssign,
   unassignRaceMedia,
@@ -45,6 +46,7 @@ function pushRecent(rider) {
 export function useClassifyMedia() {
   const loading = ref(false);
   const assigning = ref(false);
+  const downloading = ref(false);
   const error = ref('');
   const toast = ref('');
   let toastTimer = null;
@@ -114,6 +116,21 @@ export function useClassifyMedia() {
 
   function mediaPreviewUrl(item) {
     return storageUrl(item?.view_url || '');
+  }
+
+  async function downloadOriginal(item = current.value) {
+    if (!item?.id || downloading.value) return false;
+    downloading.value = true;
+    try {
+      await downloadAdminRaceMediaOriginal(item);
+      showToast('Descarga del original iniciada');
+      return true;
+    } catch (e) {
+      showToast(e?.message || 'No se pudo descargar el original');
+      return false;
+    } finally {
+      downloading.value = false;
+    }
   }
 
   function formatBytes(n) {
@@ -389,6 +406,7 @@ export function useClassifyMedia() {
     PAGE_SIZE,
     loading,
     assigning,
+    downloading,
     error,
     toast,
     competition,
@@ -424,6 +442,7 @@ export function useClassifyMedia() {
     assignCurrent,
     unassignCurrent,
     mediaPreviewUrl,
+    downloadOriginal,
     formatBytes,
     formatWhen,
     showToast,
