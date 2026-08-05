@@ -401,12 +401,12 @@ const orientLabel = computed(() => (
 ));
 
 function applyItemOrientation(item, pixelOrient) {
+  // Preview web ya upright → siempre confiar en píxeles reales.
+  if (item?.has_web_preview && pixelOrient) {
+    previewOrient.value = pixelOrient;
+    return;
+  }
   if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
-    // Preview web ya trae píxeles upright → confiar en el frame real.
-    if (item.has_web_preview && pixelOrient) {
-      previewOrient.value = pixelOrient;
-      return;
-    }
     previewOrient.value = item.orientation;
     return;
   }
@@ -511,7 +511,10 @@ watch(
   () => {
     videoError.value = '';
     const item = current.value;
-    if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
+    // Con preview web, no forzar portrait por metadata; loadedmetadata corrige.
+    if (item?.has_web_preview) {
+      previewOrient.value = 'landscape';
+    } else if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
       previewOrient.value = item.orientation;
     } else {
       previewOrient.value = 'landscape';
