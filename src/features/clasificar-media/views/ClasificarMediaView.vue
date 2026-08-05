@@ -179,19 +179,22 @@
                 <span class="material-icons">{{ selectedMap[item.id] ? 'check_box' : 'check_box_outline_blank' }}</span>
               </span>
               <span class="thumb-idx">{{ (page - 1) * PAGE_SIZE + idx + 1 }}</span>
-              <div v-if="item.media_type === 'video'" class="thumb-media thumb-media--video">
-                <span class="material-icons">play_circle</span>
-              </div>
               <img
-                v-else
-                :src="mediaPreviewUrl(item)"
-                :alt="item.original_filename || 'foto'"
+                v-if="item.media_type === 'photo' || item.thumb_url"
+                :src="thumbUrl(item)"
+                :alt="item.original_filename || 'media'"
                 class="thumb-media"
                 loading="lazy"
               />
+              <div v-else class="thumb-media thumb-media--video">
+                <span class="material-icons">play_circle</span>
+                <small v-if="!item.has_web_preview">Procesando…</small>
+              </div>
               <span class="thumb-type">
                 <span class="material-icons">{{ item.media_type === 'video' ? 'videocam' : 'photo' }}</span>
               </span>
+              <span v-if="item.media_type === 'video' && !item.has_web_preview" class="thumb-badge">Original</span>
+              <span v-else-if="item.media_type === 'video' && item.has_web_preview" class="thumb-badge thumb-badge--ok">Web</span>
             </button>
           </div>
 
@@ -213,20 +216,26 @@
           <div class="preview-stage" :class="previewOrientClass">
             <video
               v-if="current.media_type === 'video'"
-              :key="'v-' + current.id"
+              :key="'v-' + current.id + '-' + (current.has_web_preview ? 'web' : 'raw')"
               ref="previewVideoEl"
               :src="mediaPreviewUrl(current)"
               controls
               playsinline
               preload="metadata"
               class="preview-media"
-              :class="previewOrientClass"
+              :class="[previewOrientClass, videoRotateClass]"
               @loadedmetadata="onPreviewMeta"
               @error="onVideoError"
               @loadeddata="videoError = ''"
             />
+            <div
+              v-if="current.media_type === 'video' && !current.has_web_preview && !videoError"
+              class="preview-warn"
+            >
+              Sin versión web aún — puede tardar o no reproducir (HEVC/XAVC).
+            </div>
             <img
-              v-else
+              v-else-if="current.media_type === 'photo'"
               :key="'p-' + current.id"
               :src="mediaPreviewUrl(current)"
               :alt="current.original_filename || 'foto'"
@@ -391,6 +400,19 @@ const orientLabel = computed(() => (
   previewOrient.value === 'portrait' ? 'Vertical' : 'Horizontal'
 ));
 
+function applyItemOrientation(item, pixelOrient) {
+  if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
+    // Preview web ya trae píxeles upright → confiar en el frame real.
+    if (item.has_web_preview && pixelOrient) {
+      previewOrient.value = pixelOrient;
+      return;
+    }
+    previewOrient.value = item.orientation;
+    return;
+  }
+  previewOrient.value = pixelOrient || 'landscape';
+}
+
 function onVideoError() {
   videoError.value = 'Este navegador no pudo reproducir el archivo original.';
 }
@@ -399,7 +421,8 @@ function onPreviewMeta(e) {
   const el = e?.target;
   const w = Number(el?.videoWidth) || 0;
   const h = Number(el?.videoHeight) || 0;
-  previewOrient.value = h > w ? 'portrait' : 'landscape';
+  const pixelOrient = h > w ? 'portrait' : 'landscape';
+  applyItemOrientation(current.value, pixelOrient);
   videoError.value = '';
 }
 
@@ -449,6 +472,21 @@ const {
   formatWhen,
 } = useClassifyMedia();
 
+/** Solo al reproducir el original: el navegador a veces ignora rotate=90/270. */
+const videoRotateClass = computed(() => {
+  const item = current.value;
+  if (!item || item.media_type !== 'video' || item.has_web_preview) return '';
+  const r = Math.abs(Number(item.rotation) || 0) % 360;
+  if (r === 90) return 'needs-rotate-90';
+  if (r === 270) return 'needs-rotate-270';
+  if (r === 180) return 'needs-rotate-180';
+  return '';
+});
+
+function thumbUrl(item) {
+  return mediaPreviewUrl({ view_url: item.thumb_url || item.view_url });
+}
+
 function shortName(r) {
   const n = String(r.full_name || '').trim();
   if (n.length <= 14) return n;
@@ -472,7 +510,12 @@ watch(
   () => current.value?.id,
   () => {
     videoError.value = '';
-    previewOrient.value = 'landscape';
+    const item = current.value;
+    if (item?.orientation === 'portrait' || item?.orientation === 'landscape') {
+      previewOrient.value = item.orientation;
+    } else {
+      previewOrient.value = 'landscape';
+    }
   },
 );
 </script>
@@ -784,6 +827,7 @@ watch(
 .thumb-media--video {
   display: grid;
   place-items: center;
+  gap: 4px;
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 94, 0, 0.35), transparent 45%),
     #111;
@@ -792,6 +836,48 @@ watch(
 
 .thumb-media--video .material-icons {
   font-size: 36px;
+}
+
+.thumb-media--video small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.thumb-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fbbf24;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.thumb-badge--ok {
+  color: #6ee7b7;
+}
+
+.preview-warn {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .preview-error {
@@ -906,6 +992,17 @@ watch(
   border-radius: 10px;
   object-fit: contain;
   background: #000;
+}
+
+/* Originales con metadata rotate que el navegador no aplica */
+.preview-media.needs-rotate-90 {
+  transform: rotate(90deg);
+}
+.preview-media.needs-rotate-270 {
+  transform: rotate(-90deg);
+}
+.preview-media.needs-rotate-180 {
+  transform: rotate(180deg);
 }
 
 .preview-media.is-landscape,
