@@ -83,6 +83,8 @@ export function useClassifyMedia() {
   const riderSelectOptions = computed(() => allRiders.value.map((r) => ({
     value: r.id,
     label: `#${r.plate_number || '—'} · ${r.full_name}${r.category?.name ? ` (${r.category.name})` : ''}`,
+    plate: r.plate_number != null ? String(r.plate_number) : '',
+    searchText: [r.plate_number, r.full_name, r.nickname].filter(Boolean).join(' '),
   })));
 
   const current = computed(() => {

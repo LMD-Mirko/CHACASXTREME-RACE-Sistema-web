@@ -111,9 +111,20 @@ const formattedOptions = computed(() => {
     if (opt && typeof opt === 'object') {
       const value = opt.value !== undefined ? opt.value : (opt.id !== undefined ? opt.id : opt);
       const label = opt.label !== undefined ? opt.label : (opt.name !== undefined ? opt.name : opt);
-      return { value, label: String(label) };
+      const plate = opt.plate != null
+        ? String(opt.plate)
+        : String(label).match(/^#?\s*(\d+)/)?.[1] || '';
+      const searchText = opt.searchText != null
+        ? String(opt.searchText)
+        : String(label);
+      return {
+        value,
+        label: String(label),
+        plate,
+        searchText,
+      };
     }
-    return { value: opt, label: String(opt) };
+    return { value: opt, label: String(opt), plate: '', searchText: String(opt) };
   });
 });
 
@@ -126,9 +137,29 @@ const selectedLabel = computed(() => {
 
 const visibleOptions = computed(() => {
   if (!props.searchable) return formattedOptions.value;
-  const q = normalize(searchQuery.value);
-  if (!q) return formattedOptions.value;
-  return formattedOptions.value.filter((opt) => normalize(opt.label).includes(q));
+  const raw = String(searchQuery.value || '').trim();
+  if (!raw) return formattedOptions.value;
+  const q = normalize(raw);
+
+  // Solo dígitos → filtrar por número de placa (prefijo / exacto), no por categoría.
+  if (/^\d+$/.test(raw)) {
+    const matches = formattedOptions.value.filter((opt) => {
+      const plate = String(opt.plate || '').replace(/\D/g, '');
+      return plate === raw || plate.startsWith(raw);
+    });
+    return matches.slice().sort((a, b) => {
+      const pa = String(a.plate || '').replace(/\D/g, '');
+      const pb = String(b.plate || '').replace(/\D/g, '');
+      if (pa === raw && pb !== raw) return -1;
+      if (pb === raw && pa !== raw) return 1;
+      return Number(pa) - Number(pb);
+    });
+  }
+
+  return formattedOptions.value.filter((opt) => {
+    const hay = normalize(opt.searchText || opt.label);
+    return hay.includes(q);
+  });
 });
 
 function normalize(text) {
