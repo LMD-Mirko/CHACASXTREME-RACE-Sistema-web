@@ -1,5 +1,4 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useDebounceFn } from '@vueuse/core';
 import {
   assignRaceMedia,
   assignRaceMediaBulk,
@@ -8,9 +7,11 @@ import {
   unassignRaceMedia,
 } from '../services/classifyMediaService.js';
 import { storageUrl } from '../../../core/network/storageUrl.js';
+import api from '../../../core/network/axios';
 
 const RECENT_KEY = 'cxr_classify_recent_riders';
 const MAX_RECENT = 6;
+const PAGE_SIZE = 10;
 
 function loadRecent() {
   try {
@@ -52,7 +53,8 @@ export function useClassifyMedia() {
   const items = ref([]);
   const photographers = ref([]);
   const counts = ref({ general: 0, assigned: 0, photos: 0, videos: 0, total: 0 });
-  const meta = ref({ current_page: 1, last_page: 1, total: 0, per_page: 100 });
+  const meta = ref({ current_page: 1, last_page: 1, total: 0, per_page: PAGE_SIZE });
+  const page = ref(1);
 
   const filters = ref({
     scope: 'general',
@@ -65,11 +67,21 @@ export function useClassifyMedia() {
   const selectedMap = ref({});
   const multiMode = ref(false);
 
-  const riderQuery = ref('');
-  const riderResults = ref([]);
-  const searchingRiders = ref(false);
-  const selectedRider = ref(null);
+  const allRiders = ref([]);
+  const selectedRiderId = ref('');
+  const selectedRider = computed(() => {
+    const id = Number(selectedRiderId.value);
+    if (!id) return null;
+    return allRiders.value.find((r) => Number(r.id) === id)
+      || recentRiders.value.find((r) => Number(r.id) === id)
+      || null;
+  });
   const recentRiders = ref(loadRecent());
+
+  const riderSelectOptions = computed(() => allRiders.value.map((r) => ({
+    value: r.id,
+    label: `#${r.plate_number || '—'} · ${r.full_name}${r.category?.name ? ` (${r.category.name})` : ''}`,
+  })));
 
   const current = computed(() => {
     if (!selectedId.value) return items.value[0] || null;
@@ -81,13 +93,16 @@ export function useClassifyMedia() {
     return items.value.findIndex((m) => m.id === current.value.id);
   });
 
-  const pendingCount = computed(() => {
-    if (filters.value.scope === 'general') return meta.value.total || items.value.length;
-    return counts.value.general || 0;
+  /** Índice global 1-based del ítem actual (para UI). */
+  const globalIndex = computed(() => {
+    if (currentIndex.value < 0) return 0;
+    return (meta.value.current_page - 1) * meta.value.per_page + currentIndex.value + 1;
   });
 
-  const selectedIds = computed(() => new Set(Object.keys(selectedMap.value).map(Number)));
+  const pendingCount = computed(() => counts.value.general || 0);
   const selectedCount = computed(() => Object.keys(selectedMap.value).length);
+  const canPrevPage = computed(() => page.value > 1);
+  const canNextPage = computed(() => page.value < (meta.value.last_page || 1));
 
   function showToast(message) {
     toast.value = message;
@@ -122,45 +137,65 @@ export function useClassifyMedia() {
     }
   }
 
+  async function loadRiders() {
+    try {
+      const { data } = await api.get('/api/riders', { params: { has_plate: 1 } });
+      allRiders.value = (data.data || []).slice().sort((a, b) => {
+        const pa = Number(a.plate_number) || 9999;
+        const pb = Number(b.plate_number) || 9999;
+        return pa - pb;
+      });
+    } catch {
+      // fallback search API if list fails
+      try {
+        allRiders.value = await searchRidersForAssign(' ');
+      } catch {
+        allRiders.value = [];
+      }
+    }
+  }
+
   async function load(opts = {}) {
     const keepSelection = opts.keepSelection === true;
     const prevId = selectedId.value;
+    const targetPage = opts.page != null ? opts.page : page.value;
+
     loading.value = true;
     error.value = '';
     try {
       const params = {
         scope: filters.value.scope,
         media_type: filters.value.media_type,
-        per_page: 100,
-        page: 1,
+        per_page: PAGE_SIZE,
+        page: targetPage,
       };
       if (filters.value.photographer_id) {
         params.photographer_id = filters.value.photographer_id;
       }
 
-      const first = await listAdminRaceMedia(params);
-      competition.value = first.competition;
-      photographers.value = first.photographers || [];
-      counts.value = first.counts || counts.value;
-      meta.value = first.meta || meta.value;
+      const res = await listAdminRaceMedia(params);
+      competition.value = res.competition;
+      photographers.value = res.photographers || [];
+      counts.value = res.counts || counts.value;
+      meta.value = res.meta || meta.value;
+      page.value = res.meta?.current_page || targetPage;
 
-      let all = [...(first.data || [])];
-      const lastPage = first.meta?.last_page || 1;
-      for (let page = 2; page <= lastPage; page += 1) {
-        const more = await listAdminRaceMedia({ ...params, page });
-        all = all.concat(more.data || []);
+      const pageItems = [...(res.data || [])];
+      items.value = pageItems;
+
+      // Si la página quedó vacía (p.ej. tras asignar todo) y hay anteriores, retrocede
+      if (!pageItems.length && page.value > 1) {
+        loading.value = false;
+        return load({ page: page.value - 1 });
       }
 
-      items.value = all;
-
-      if (keepSelection && prevId && all.some((m) => m.id === prevId)) {
+      if (keepSelection && prevId && pageItems.some((m) => m.id === prevId)) {
         selectedId.value = prevId;
-      } else if (!all.some((m) => m.id === selectedId.value)) {
-        selectedId.value = all[0]?.id ?? null;
+      } else {
+        selectedId.value = pageItems[0]?.id ?? null;
       }
 
-      // Limpiar selección múltiple de ids que ya no existen
-      const alive = new Set(all.map((m) => m.id));
+      const alive = new Set(pageItems.map((m) => m.id));
       const nextMap = {};
       Object.keys(selectedMap.value).forEach((id) => {
         if (alive.has(Number(id))) nextMap[id] = true;
@@ -172,6 +207,20 @@ export function useClassifyMedia() {
     } finally {
       loading.value = false;
     }
+  }
+
+  function goToPage(p) {
+    const next = Math.max(1, Math.min(meta.value.last_page || 1, Number(p) || 1));
+    selectedMap.value = {};
+    return load({ page: next });
+  }
+
+  function nextPage() {
+    if (canNextPage.value) return goToPage(page.value + 1);
+  }
+
+  function prevPage() {
+    if (canPrevPage.value) return goToPage(page.value - 1);
   }
 
   function selectItem(id, { toggleMulti = false } = {}) {
@@ -201,45 +250,29 @@ export function useClassifyMedia() {
     multiMode.value = false;
   }
 
-  function selectNext(delta = 1) {
+  async function selectNext(delta = 1) {
     if (!items.value.length) return;
     const idx = currentIndex.value < 0 ? 0 : currentIndex.value;
-    const next = Math.max(0, Math.min(items.value.length - 1, idx + delta));
+    const next = idx + delta;
+    if (next < 0) {
+      if (canPrevPage.value) {
+        await prevPage();
+        if (items.value.length) selectedId.value = items.value[items.value.length - 1].id;
+      }
+      return;
+    }
+    if (next >= items.value.length) {
+      if (canNextPage.value) {
+        await nextPage();
+      }
+      return;
+    }
     selectedId.value = items.value[next].id;
   }
 
-  const runRiderSearch = useDebounceFn(async (q) => {
-    searchingRiders.value = true;
-    try {
-      riderResults.value = await searchRidersForAssign(q);
-      if (riderResults.value.length === 1) {
-        selectedRider.value = riderResults.value[0];
-      }
-    } catch {
-      riderResults.value = [];
-    } finally {
-      searchingRiders.value = false;
-    }
-  }, 220);
-
-  watch(riderQuery, (q) => {
-    selectedRider.value = null;
-    if (!String(q || '').trim()) {
-      riderResults.value = [];
-      return;
-    }
-    runRiderSearch(q);
-  });
-
-  function pickRider(rider) {
-    selectedRider.value = rider;
-    riderQuery.value = rider.plate_number
-      ? `#${rider.plate_number} ${rider.full_name}`
-      : rider.full_name;
-  }
-
   function pickRecent(rider) {
-    pickRider(rider);
+    if (!rider?.id) return;
+    selectedRiderId.value = rider.id;
   }
 
   async function assignCurrent() {
@@ -271,28 +304,11 @@ export function useClassifyMedia() {
       }
 
       recentRiders.value = pushRecent(rider) || recentRiders.value;
+      selectedMap.value = {};
+      multiMode.value = false;
 
-      // Quitar de la cola local si estamos en General
-      if (filters.value.scope === 'general') {
-        const remove = new Set(ids);
-        const idxBefore = currentIndex.value;
-        const nextItems = items.value.filter((m) => !remove.has(m.id));
-        items.value = nextItems;
-        counts.value = {
-          ...counts.value,
-          general: Math.max(0, (counts.value.general || 0) - ids.length),
-          assigned: (counts.value.assigned || 0) + ids.length,
-        };
-        meta.value = { ...meta.value, total: nextItems.length };
-        selectedMap.value = {};
-        multiMode.value = false;
-        selectedId.value = nextItems[Math.min(Math.max(idxBefore, 0), nextItems.length - 1)]?.id
-          ?? nextItems[0]?.id
-          ?? null;
-      } else {
-        await load({ keepSelection: true });
-      }
-
+      // Recargar página actual (el total baja; puede vaciar la página)
+      await load({ page: page.value });
       return true;
     } catch (e) {
       error.value = e?.response?.data?.message || e?.message || 'No se pudo asignar.';
@@ -309,7 +325,7 @@ export function useClassifyMedia() {
     try {
       const res = await unassignRaceMedia(current.value.id);
       showToast(res.message || 'Devuelto a General');
-      await load({ keepSelection: false });
+      await load({ page: page.value });
       return true;
     } catch (e) {
       error.value = e?.response?.data?.message || 'No se pudo devolver a General.';
@@ -322,28 +338,18 @@ export function useClassifyMedia() {
 
   function onKeydown(e) {
     const tag = (e.target?.tagName || '').toLowerCase();
-    const typing = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable;
+    const typing = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable
+      || e.target?.closest?.('.app-select');
 
     if (e.key === 'Escape') {
       if (multiMode.value || selectedCount.value) {
         clearMulti();
         e.preventDefault();
-      } else if (riderQuery.value) {
-        riderQuery.value = '';
-        selectedRider.value = null;
-        riderResults.value = [];
-        e.preventDefault();
       }
       return;
     }
 
-    if (typing) {
-      if (e.key === 'Enter' && selectedRider.value && !e.shiftKey) {
-        e.preventDefault();
-        assignCurrent();
-      }
-      return;
-    }
+    if (typing) return;
 
     if (e.key === 'ArrowRight' || e.key === 'j') {
       e.preventDefault();
@@ -358,20 +364,19 @@ export function useClassifyMedia() {
       e.preventDefault();
       multiMode.value = !multiMode.value;
       if (!multiMode.value) selectedMap.value = {};
-    } else if (e.key === '/') {
-      e.preventDefault();
-      document.getElementById('classify-rider-search')?.focus();
     }
   }
 
+  // Al cambiar filtros → página 1
   watch(filters, () => {
     selectedMap.value = {};
     multiMode.value = false;
-    load();
+    load({ page: 1 });
   }, { deep: true });
 
   onMounted(() => {
-    load();
+    load({ page: 1 });
+    loadRiders();
     window.addEventListener('keydown', onKeydown);
   });
 
@@ -381,6 +386,7 @@ export function useClassifyMedia() {
   });
 
   return {
+    PAGE_SIZE,
     loading,
     assigning,
     error,
@@ -390,26 +396,30 @@ export function useClassifyMedia() {
     photographers,
     counts,
     meta,
+    page,
     filters,
     selectedId,
-    selectedIds,
     selectedMap,
     multiMode,
-    riderQuery,
-    riderResults,
-    searchingRiders,
+    selectedRiderId,
     selectedRider,
     recentRiders,
+    riderSelectOptions,
     current,
     currentIndex,
+    globalIndex,
     pendingCount,
     selectedCount,
+    canPrevPage,
+    canNextPage,
     load,
+    goToPage,
+    nextPage,
+    prevPage,
     selectItem,
     selectNext,
     toggleSelectAllVisible,
     clearMulti,
-    pickRider,
     pickRecent,
     assignCurrent,
     unassignCurrent,

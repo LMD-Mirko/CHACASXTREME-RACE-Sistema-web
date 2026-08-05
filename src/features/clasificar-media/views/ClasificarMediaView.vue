@@ -124,7 +124,7 @@
         :class="{ active: mobilePane === 'queue' }"
         @click="mobilePane = 'queue'"
       >
-        Cola ({{ items.length }})
+        Cola ({{ meta.total }})
       </button>
       <button
         type="button"
@@ -148,7 +148,7 @@
       <aside class="pane pane-queue" :class="{ 'pane--hidden-mobile': mobilePane !== 'queue' }">
         <div class="pane-title">
           <span>{{ filters.scope === 'general' ? 'Bandeja General' : 'Resultados' }}</span>
-          <strong>{{ items.length }}</strong>
+          <strong>{{ meta.total }}</strong>
         </div>
 
         <div v-if="loading && !items.length" class="empty">
@@ -162,62 +162,92 @@
           <p v-else>No hay resultados con estos filtros.</p>
         </div>
 
-        <div v-else class="thumb-grid">
-          <button
-            v-for="(item, idx) in items"
-            :key="item.id"
-            type="button"
-            class="thumb"
-            :class="{
-              'thumb--active': current?.id === item.id,
-              'thumb--checked': !!selectedMap[item.id],
-            }"
-            @click="onThumbClick(item, $event)"
-          >
-            <span v-if="multiMode" class="check" :class="{ on: !!selectedMap[item.id] }">
-              <span class="material-icons">{{ selectedMap[item.id] ? 'check_box' : 'check_box_outline_blank' }}</span>
-            </span>
-            <span class="thumb-idx">{{ idx + 1 }}</span>
-            <video
-              v-if="item.media_type === 'video'"
-              :src="mediaPreviewUrl(item)"
-              muted
-              preload="metadata"
-              class="thumb-media"
-            />
-            <img
-              v-else
-              :src="mediaPreviewUrl(item)"
-              :alt="item.original_filename || 'foto'"
-              class="thumb-media"
-              loading="lazy"
-            />
-            <span class="thumb-type">
-              <span class="material-icons">{{ item.media_type === 'video' ? 'videocam' : 'photo' }}</span>
-            </span>
-          </button>
-        </div>
+        <template v-else>
+          <div class="thumb-grid">
+            <button
+              v-for="(item, idx) in items"
+              :key="item.id"
+              type="button"
+              class="thumb"
+              :class="{
+                'thumb--active': current?.id === item.id,
+                'thumb--checked': !!selectedMap[item.id],
+              }"
+              @click="onThumbClick(item, $event)"
+            >
+              <span v-if="multiMode" class="check" :class="{ on: !!selectedMap[item.id] }">
+                <span class="material-icons">{{ selectedMap[item.id] ? 'check_box' : 'check_box_outline_blank' }}</span>
+              </span>
+              <span class="thumb-idx">{{ (page - 1) * PAGE_SIZE + idx + 1 }}</span>
+              <div v-if="item.media_type === 'video'" class="thumb-media thumb-media--video">
+                <span class="material-icons">play_circle</span>
+              </div>
+              <img
+                v-else
+                :src="mediaPreviewUrl(item)"
+                :alt="item.original_filename || 'foto'"
+                class="thumb-media"
+                loading="lazy"
+              />
+              <span class="thumb-type">
+                <span class="material-icons">{{ item.media_type === 'video' ? 'videocam' : 'photo' }}</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="pager">
+            <button type="button" class="tool-btn" :disabled="!canPrevPage || loading" @click="prevPage">
+              <span class="material-icons">chevron_left</span>
+            </button>
+            <span class="pager-label">{{ page }} / {{ meta.last_page || 1 }}</span>
+            <button type="button" class="tool-btn" :disabled="!canNextPage || loading" @click="nextPage">
+              <span class="material-icons">chevron_right</span>
+            </button>
+          </div>
+        </template>
       </aside>
 
       <!-- Preview -->
       <section class="pane pane-preview" :class="{ 'pane--hidden-mobile': mobilePane !== 'preview' }">
         <template v-if="current">
-          <div class="preview-stage">
+          <div class="preview-stage" :class="previewOrientClass">
             <video
               v-if="current.media_type === 'video'"
               :key="'v-' + current.id"
+              ref="previewVideoEl"
               :src="mediaPreviewUrl(current)"
               controls
               playsinline
+              preload="metadata"
               class="preview-media"
+              :class="previewOrientClass"
+              @loadedmetadata="onPreviewMeta"
+              @error="onVideoError"
+              @loadeddata="videoError = ''"
             />
             <img
               v-else
               :key="'p-' + current.id"
               :src="mediaPreviewUrl(current)"
               :alt="current.original_filename || 'foto'"
-              class="preview-media"
+              class="preview-media preview-media--photo"
+              @load="onImageOrient"
             />
+            <div v-if="current.media_type === 'video' && videoError" class="preview-error">
+              <span class="material-icons">error_outline</span>
+              <p>{{ videoError }}</p>
+              <p class="preview-error-hint">
+                Suele pasar con HEVC (iPhone/reels) o XAVC de cámara (~90 Mbps, moov al final).
+              </p>
+              <a
+                class="preview-open"
+                :href="mediaPreviewUrl(current)"
+                target="_blank"
+                rel="noopener"
+              >
+                Abrir / descargar original
+              </a>
+            </div>
           </div>
 
           <div class="preview-meta">
@@ -230,7 +260,8 @@
               <span v-else-if="current.rider" class="chip chip--assigned">
                 #{{ current.rider.plate_number }} {{ current.rider.full_name }}
               </span>
-              <span class="meta-pos">{{ currentIndex + 1 }} / {{ items.length }}</span>
+              <span class="chip chip--orient">{{ orientLabel }}</span>
+              <span class="meta-pos">{{ globalIndex }} / {{ meta.total }}</span>
             </div>
             <div class="meta-details">
               <span>
@@ -279,7 +310,7 @@
               :key="r.id"
               type="button"
               class="recent-chip"
-              :class="{ active: selectedRider?.id === r.id }"
+              :class="{ active: Number(selectedRiderId) === Number(r.id) }"
               @click="pickRecent(r)"
             >
               <span class="plate">#{{ r.plate_number || '—' }}</span>
@@ -288,40 +319,14 @@
           </div>
         </div>
 
-        <label class="search-label" for="classify-rider-search">Buscar placa o nombre</label>
-        <div class="search-box">
-          <span class="material-icons">search</span>
-          <input
-            id="classify-rider-search"
-            v-model="riderQuery"
-            type="search"
-            autocomplete="off"
-            placeholder="Ej: 42 o Pérez…"
-            @keydown.enter.prevent="assignCurrent()"
+        <label class="search-label">Competidor</label>
+        <div class="select-wrap">
+          <AppSelect
+            v-model="selectedRiderId"
+            :options="riderSelectOptions"
+            placeholder="Selecciona placa / nombre"
+            icon="badge"
           />
-          <span v-if="searchingRiders" class="material-icons spin tiny">sync</span>
-        </div>
-
-        <div class="rider-results">
-          <button
-            v-for="rider in riderResults"
-            :key="rider.id"
-            type="button"
-            class="rider-row"
-            :class="{ active: selectedRider?.id === rider.id }"
-            @click="pickRider(rider)"
-          >
-            <span class="rider-plate">#{{ rider.plate_number || '—' }}</span>
-            <span class="rider-info">
-              <strong>{{ rider.full_name }}</strong>
-              <small v-if="rider.nickname">{{ rider.nickname }}</small>
-              <small v-if="rider.category?.name">{{ rider.category.name }}</small>
-            </span>
-            <span v-if="selectedRider?.id === rider.id" class="material-icons ok">check_circle</span>
-          </button>
-          <p v-if="riderQuery.trim() && !searchingRiders && !riderResults.length" class="no-riders">
-            Sin resultados
-          </p>
         </div>
 
         <div class="assign-actions">
@@ -353,9 +358,9 @@
         </div>
 
         <div class="shortcuts">
-          <p><kbd>←</kbd><kbd>→</kbd> navegar</p>
-          <p><kbd>Enter</kbd> asignar</p>
-          <p><kbd>/</kbd> buscar · <kbd>M</kbd> multi · <kbd>Esc</kbd> limpiar</p>
+          <p><kbd>←</kbd><kbd>→</kbd> navegar (cambia de página al borde)</p>
+          <p><kbd>Enter</kbd> asignar · <kbd>M</kbd> multi · <kbd>Esc</kbd> limpiar</p>
+          <p>Página {{ page }}/{{ meta.last_page || 1 }} · {{ PAGE_SIZE }} por página</p>
         </div>
       </aside>
     </div>
@@ -370,12 +375,43 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import AppSelect from '../../../components/ui/AppSelect.vue';
 import { useClassifyMedia } from '../composables/useClassifyMedia.js';
 
 const mobilePane = ref('preview');
+const videoError = ref('');
+const previewOrient = ref('landscape'); // landscape | portrait
+
+const previewOrientClass = computed(() => (
+  previewOrient.value === 'portrait' ? 'is-portrait' : 'is-landscape'
+));
+
+const orientLabel = computed(() => (
+  previewOrient.value === 'portrait' ? 'Vertical' : 'Horizontal'
+));
+
+function onVideoError() {
+  videoError.value = 'Este navegador no pudo reproducir el archivo original.';
+}
+
+function onPreviewMeta(e) {
+  const el = e?.target;
+  const w = Number(el?.videoWidth) || 0;
+  const h = Number(el?.videoHeight) || 0;
+  previewOrient.value = h > w ? 'portrait' : 'landscape';
+  videoError.value = '';
+}
+
+function onImageOrient(e) {
+  const el = e?.target;
+  const w = Number(el?.naturalWidth) || 0;
+  const h = Number(el?.naturalHeight) || 0;
+  previewOrient.value = h > w ? 'portrait' : 'landscape';
+}
 
 const {
+  PAGE_SIZE,
   loading,
   assigning,
   error,
@@ -384,26 +420,30 @@ const {
   items,
   photographers,
   counts,
+  meta,
+  page,
   filters,
   selectedMap,
   multiMode,
-  riderQuery,
-  riderResults,
-  searchingRiders,
+  selectedRiderId,
   selectedRider,
   recentRiders,
+  riderSelectOptions,
   current,
   currentIndex,
+  globalIndex,
   selectedCount,
-  load,
+  canPrevPage,
+  canNextPage,
   selectItem,
   selectNext,
   toggleSelectAllVisible,
   clearMulti,
-  pickRider,
   pickRecent,
   assignCurrent,
   unassignCurrent,
+  nextPage,
+  prevPage,
   mediaPreviewUrl,
   formatBytes,
   formatWhen,
@@ -427,6 +467,14 @@ async function doAssign() {
     mobilePane.value = items.value.length ? 'preview' : 'queue';
   }
 }
+
+watch(
+  () => current.value?.id,
+  () => {
+    videoError.value = '';
+    previewOrient.value = 'landscape';
+  },
+);
 </script>
 
 <style scoped>
@@ -673,6 +721,10 @@ async function doAssign() {
   overflow: hidden;
 }
 
+.pane.pane-assign {
+  overflow: visible;
+}
+
 .pane-title {
   display: flex;
   align-items: center;
@@ -729,6 +781,61 @@ async function doAssign() {
   pointer-events: none;
 }
 
+.thumb-media--video {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 94, 0, 0.35), transparent 45%),
+    #111;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.thumb-media--video .material-icons {
+  font-size: 36px;
+}
+
+.preview-error {
+  position: absolute;
+  inset: 12px;
+  margin: auto;
+  max-width: 420px;
+  height: fit-content;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fff;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.preview-error .material-icons {
+  color: #fbbf24;
+  font-size: 28px;
+}
+
+.preview-error p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-error-hint {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  opacity: 0.8;
+}
+
+.preview-open {
+  margin-top: 4px;
+  color: #fdba74;
+  font-weight: 700;
+  font-size: 13px;
+}
+
 .thumb-idx {
   position: absolute;
   top: 6px;
@@ -777,21 +884,78 @@ async function doAssign() {
 }
 
 .preview-stage {
+  position: relative;
   flex: 1;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background:
     radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 55%),
     #0a0a0a;
   min-height: 280px;
   padding: 12px;
+  overflow: hidden;
+}
+
+.preview-stage.is-portrait {
+  /* Marco vertical: no estira a todo el ancho */
+  align-items: center;
 }
 
 .preview-media {
-  max-width: 100%;
-  max-height: min(58vh, 560px);
   border-radius: 10px;
   object-fit: contain;
+  background: #000;
+}
+
+.preview-media.is-landscape,
+.preview-stage.is-landscape .preview-media {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: min(58vh, 560px);
+}
+
+.preview-media.is-portrait,
+.preview-stage.is-portrait .preview-media {
+  width: auto;
+  max-width: min(100%, 420px);
+  height: min(62vh, 640px);
+  max-height: min(62vh, 640px);
+}
+
+.preview-media--photo {
+  max-width: 100%;
+  max-height: min(58vh, 560px);
+}
+
+.chip--orient {
+  background: color-mix(in srgb, #38bdf8 18%, transparent);
+  color: #7dd3fc;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pager-label {
+  font-family: var(--font-headings);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  min-width: 64px;
+  text-align: center;
+}
+
+.select-wrap {
+  margin: 0 14px 4px;
+  position: relative;
+  z-index: 5;
 }
 
 .preview-meta {
@@ -875,6 +1039,7 @@ async function doAssign() {
 
 .pane-assign {
   padding-bottom: 12px;
+  overflow: visible;
 }
 
 .recent-block {
