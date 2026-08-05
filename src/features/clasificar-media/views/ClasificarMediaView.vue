@@ -355,8 +355,9 @@
           <AppSelect
             v-model="selectedRiderId"
             :options="riderSelectOptions"
-            placeholder="Selecciona placa / nombre"
+            placeholder="Escribe placa o nombre…"
             icon="badge"
+            searchable
           />
         </div>
 

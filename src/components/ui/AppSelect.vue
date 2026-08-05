@@ -1,26 +1,51 @@
 <template>
   <div class="app-select" :class="{ 'app-select--open': isOpen }" ref="selectRef">
-    <!-- Botón disparador del selector -->
+    <!-- Botón / campo disparador -->
     <div
       class="select-trigger"
-      :class="{ 'select-trigger--open': isOpen, 'select-trigger--disabled': disabled }"
-      @click="toggleDropdown"
-      tabindex="0"
-      @keydown.space.prevent="toggleDropdown"
-      @keydown.enter.prevent="toggleDropdown"
-      @keydown.escape="isOpen = false"
+      :class="{
+        'select-trigger--open': isOpen,
+        'select-trigger--disabled': disabled,
+        'select-trigger--search': searchable,
+      }"
+      @click="onTriggerClick"
+      :tabindex="searchable ? -1 : 0"
+      @keydown.space.prevent="!searchable && toggleDropdown()"
+      @keydown.enter.prevent="!searchable && toggleDropdown()"
+      @keydown.escape="closeDropdown"
     >
       <div class="trigger-content">
         <span v-if="icon" class="material-icons trigger-icon">{{ icon }}</span>
-        <span class="trigger-label" :class="{ 'placeholder-style': !selectedLabel }">
+
+        <input
+          v-if="searchable"
+          ref="searchInputRef"
+          v-model="searchQuery"
+          class="search-input"
+          type="text"
+          inputmode="search"
+          autocomplete="off"
+          :placeholder="selectedLabel || placeholder"
+          :disabled="disabled"
+          @focus="openDropdown"
+          @keydown.down.prevent="highlightNext(1)"
+          @keydown.up.prevent="highlightNext(-1)"
+          @keydown.enter.prevent="selectHighlighted"
+          @keydown.escape.prevent="closeDropdown"
+        />
+        <span
+          v-else
+          class="trigger-label"
+          :class="{ 'placeholder-style': !selectedLabel }"
+        >
           {{ selectedLabel || placeholder }}
         </span>
       </div>
       <span class="material-icons arrow-icon">expand_more</span>
 
-      <!-- Selector Nativo Oculto para Móviles (Evita cortes de CSS y usa selector OS) -->
+      <!-- Selector nativo solo en móvil y sin búsqueda -->
       <select
-        v-if="isMobile"
+        v-if="isMobile && !searchable"
         class="native-mobile-select"
         :value="modelValue"
         @change="onNativeChange"
@@ -33,27 +58,35 @@
       </select>
     </div>
 
-    <!-- Dropdown desplegable con opciones (Solo Desktop) -->
     <Transition name="slide-fade">
-      <ul v-if="isOpen && !isMobile" class="options-list">
+      <ul v-if="isOpen && !(isMobile && !searchable)" class="options-list" role="listbox">
         <li
-          v-for="opt in formattedOptions"
+          v-for="(opt, idx) in visibleOptions"
           :key="opt.value"
           class="option-item"
-          :class="{ 'option-item--selected': opt.value === modelValue }"
-          @click="selectOption(opt.value)"
+          :class="{
+            'option-item--selected': String(opt.value) === String(modelValue),
+            'option-item--active': idx === highlightIndex,
+          }"
+          @mousedown.prevent="selectOption(opt.value)"
+          @mouseenter="highlightIndex = idx"
         >
           <span>{{ opt.label }}</span>
-          <span v-if="opt.value === modelValue" class="material-icons check-icon">check</span>
+          <span
+            v-if="String(opt.value) === String(modelValue)"
+            class="material-icons check-icon"
+          >check</span>
         </li>
-        <li v-if="formattedOptions.length === 0" class="empty-option">Sin opciones</li>
+        <li v-if="visibleOptions.length === 0" class="empty-option">
+          {{ searchable && searchQuery.trim() ? 'Sin coincidencias' : 'Sin opciones' }}
+        </li>
       </ul>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   modelValue: [String, Number],
@@ -61,42 +94,102 @@ const props = defineProps({
   placeholder: { type: String, default: 'Seleccione una opción' },
   icon: String,
   disabled: Boolean,
+  /** Permite escribir para filtrar por placa / nombre / label */
+  searchable: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue', 'change']);
 const isOpen = ref(false);
 const selectRef = ref(null);
+const searchInputRef = ref(null);
 const isMobile = ref(false);
+const searchQuery = ref('');
+const highlightIndex = ref(0);
 
 const formattedOptions = computed(() => {
   return props.options.map((opt) => {
     if (opt && typeof opt === 'object') {
       const value = opt.value !== undefined ? opt.value : (opt.id !== undefined ? opt.id : opt);
       const label = opt.label !== undefined ? opt.label : (opt.name !== undefined ? opt.name : opt);
-      return { value, label };
+      return { value, label: String(label) };
     }
-    return { value: opt, label: opt };
+    return { value: opt, label: String(opt) };
   });
 });
 
 const selectedLabel = computed(() => {
-  const active = formattedOptions.value.find((opt) => opt.value === props.modelValue);
+  const active = formattedOptions.value.find(
+    (opt) => String(opt.value) === String(props.modelValue),
+  );
   return active ? active.label : '';
 });
 
+const visibleOptions = computed(() => {
+  if (!props.searchable) return formattedOptions.value;
+  const q = normalize(searchQuery.value);
+  if (!q) return formattedOptions.value;
+  return formattedOptions.value.filter((opt) => normalize(opt.label).includes(q));
+});
+
+function normalize(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function openDropdown() {
+  if (props.disabled) return;
+  isOpen.value = true;
+  highlightIndex.value = 0;
+  if (props.searchable) {
+    nextTick(() => searchInputRef.value?.focus());
+  }
+}
+
+function closeDropdown() {
+  isOpen.value = false;
+  searchQuery.value = '';
+  highlightIndex.value = 0;
+}
+
 function toggleDropdown() {
-  if (!props.disabled && !isMobile.value) isOpen.value = !isOpen.value;
+  if (props.disabled) return;
+  if (isOpen.value) closeDropdown();
+  else openDropdown();
+}
+
+function onTriggerClick() {
+  if (props.disabled) return;
+  if (props.searchable) {
+    openDropdown();
+    return;
+  }
+  if (!isMobile.value) toggleDropdown();
 }
 
 function selectOption(val) {
   emit('update:modelValue', val);
   emit('change', val);
-  isOpen.value = false;
+  closeDropdown();
+}
+
+function selectHighlighted() {
+  const opt = visibleOptions.value[highlightIndex.value];
+  if (opt) selectOption(opt.value);
+}
+
+function highlightNext(dir) {
+  const len = visibleOptions.value.length;
+  if (!len) return;
+  if (!isOpen.value) openDropdown();
+  highlightIndex.value = (highlightIndex.value + dir + len) % len;
 }
 
 function onNativeChange(event) {
   const val = event.target.value;
-  const match = formattedOptions.value.find(opt => opt.value.toString() === val.toString());
+  const match = formattedOptions.value.find((opt) => String(opt.value) === String(val));
   if (match) selectOption(match.value);
 }
 
@@ -105,8 +198,19 @@ function checkViewport() {
 }
 
 const handleDocumentClick = (e) => {
-  if (selectRef.value && !selectRef.value.contains(e.target)) isOpen.value = false;
+  if (selectRef.value && !selectRef.value.contains(e.target)) closeDropdown();
 };
+
+watch(searchQuery, () => {
+  highlightIndex.value = 0;
+});
+
+watch(
+  () => props.modelValue,
+  () => {
+    if (!isOpen.value) searchQuery.value = '';
+  },
+);
 
 onMounted(() => {
   checkViewport();
@@ -128,7 +232,7 @@ onBeforeUnmount(() => {
 }
 
 .app-select--open {
-  z-index: 50; /* Raise stacking context when dropdown is open */
+  z-index: 50;
 }
 
 .select-trigger {
@@ -158,22 +262,46 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
+.select-trigger--search {
+  cursor: text;
+}
+
 .trigger-content {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1;
 }
 
 .trigger-icon {
   font-size: 20px;
   color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
 .trigger-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  padding: 0;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.85;
 }
 
 .placeholder-style {
@@ -185,6 +313,7 @@ onBeforeUnmount(() => {
   font-size: 20px;
   color: var(--color-text-secondary);
   transition: transform 0.25s ease;
+  flex-shrink: 0;
 }
 
 .select-trigger--open .arrow-icon {
@@ -219,17 +348,24 @@ onBeforeUnmount(() => {
 }
 
 .option-item {
-  height: 42px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 8px 16px;
   font-size: 14px;
   color: var(--color-text-primary);
   cursor: pointer;
+  gap: 8px;
 }
 
-.option-item:hover {
+.option-item span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.option-item:hover,
+.option-item--active {
   background: rgba(255, 94, 0, 0.05);
   color: var(--color-primary);
 }
@@ -243,6 +379,7 @@ onBeforeUnmount(() => {
 .check-icon {
   font-size: 18px;
   color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 .empty-option {
