@@ -37,7 +37,7 @@ export async function searchRidersForAssign(query) {
   const q = String(query || '').trim();
   if (!q) return [];
   const { data } = await api.get('/api/riders', {
-    params: { search: q, has_plate: 1 },
+    params: { search: q, has_plate: 1, lite: 1 },
   });
   return data.data || [];
 }

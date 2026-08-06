@@ -180,21 +180,22 @@
               </span>
               <span class="thumb-idx">{{ (page - 1) * PAGE_SIZE + idx + 1 }}</span>
               <img
-                v-if="item.media_type === 'photo' || item.thumb_url"
+                v-if="item.thumb_url"
                 :src="thumbUrl(item)"
                 :alt="item.original_filename || 'media'"
                 class="thumb-media"
                 loading="lazy"
+                decoding="async"
               />
-              <div v-else class="thumb-media thumb-media--video">
-                <span class="material-icons">play_circle</span>
-                <small v-if="!item.has_web_preview">Procesando…</small>
+              <div v-else class="thumb-media thumb-media--pending">
+                <span class="material-icons">{{ item.media_type === 'video' ? 'hourglass_top' : 'image' }}</span>
+                <small>Procesando…</small>
               </div>
               <span class="thumb-type">
                 <span class="material-icons">{{ item.media_type === 'video' ? 'videocam' : 'photo' }}</span>
               </span>
-              <span v-if="item.media_type === 'video' && !item.has_web_preview" class="thumb-badge">Original</span>
-              <span v-else-if="item.media_type === 'video' && item.has_web_preview" class="thumb-badge thumb-badge--ok">Web</span>
+              <span v-if="item.derivatives_pending" class="thumb-badge">Procesando</span>
+              <span v-else-if="item.has_web_preview" class="thumb-badge thumb-badge--ok">Web</span>
             </button>
           </div>
 
@@ -215,8 +216,8 @@
         <template v-if="current">
           <div class="preview-stage" :class="previewOrientClass">
             <video
-              v-if="current.media_type === 'video'"
-              :key="'v-' + current.id + '-' + (current.has_web_preview ? 'web' : 'raw')"
+              v-if="current.media_type === 'video' && current.has_web_preview"
+              :key="'v-' + current.id + '-web'"
               ref="previewVideoEl"
               :src="mediaPreviewUrl(current)"
               controls
@@ -228,20 +229,25 @@
               @error="onVideoError"
               @loadeddata="videoError = ''"
             />
-            <div
-              v-if="current.media_type === 'video' && !current.has_web_preview && !videoError"
-              class="preview-warn"
-            >
-              Sin versión web aún — puede tardar o no reproducir (HEVC/XAVC).
-            </div>
             <img
-              v-else-if="current.media_type === 'photo'"
+              v-else-if="current.media_type === 'photo' && current.view_url"
               :key="'p-' + current.id"
               :src="mediaPreviewUrl(current)"
               :alt="current.original_filename || 'foto'"
               class="preview-media preview-media--photo"
+              decoding="async"
               @load="onImageOrient"
             />
+            <div
+              v-else-if="current.derivatives_pending || !current.has_web_preview"
+              class="preview-warn preview-warn--pending"
+            >
+              <span class="material-icons">hourglass_top</span>
+              <p>Versión web en proceso. El original HD sigue disponible para descarga.</p>
+              <button type="button" class="preview-open" :disabled="downloading" @click="downloadOriginal(current)">
+                {{ downloading ? 'Descargando…' : 'Descargar original' }}
+              </button>
+            </div>
             <div v-if="current.media_type === 'video' && videoError" class="preview-error">
               <span class="material-icons">error_outline</span>
               <p>{{ videoError }}</p>
@@ -531,6 +537,7 @@ const {
   nextPage,
   prevPage,
   mediaPreviewUrl,
+  mediaThumbUrl,
   downloadOriginal,
   formatBytes,
   formatWhen,
@@ -571,7 +578,7 @@ const videoRotateClass = computed(() => {
 });
 
 function thumbUrl(item) {
-  return mediaPreviewUrl({ view_url: item.thumb_url || item.view_url });
+  return mediaThumbUrl(item);
 }
 
 function shortName(r) {
@@ -925,6 +932,34 @@ watch(
   color: rgba(255, 255, 255, 0.85);
 }
 
+.thumb-media--pending {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  background:
+    linear-gradient(110deg, #1a1a1a 25%, #2a2a2a 37%, #1a1a1a 63%);
+  background-size: 200% 100%;
+  animation: thumb-shimmer 1.2s linear infinite;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.thumb-media--pending .material-icons {
+  font-size: 28px;
+}
+
+.thumb-media--pending small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+@keyframes thumb-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .thumb-media--video .material-icons {
   font-size: 36px;
 }
@@ -969,6 +1004,33 @@ watch(
   font-size: 12px;
   font-weight: 600;
   text-align: center;
+}
+
+.preview-warn--pending {
+  position: relative;
+  inset: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 220px;
+  padding: 24px 20px;
+  color: #e2e8f0;
+  background: #0f172a;
+}
+
+.preview-warn--pending .material-icons {
+  font-size: 36px;
+  color: #fbbf24;
+}
+
+.preview-warn--pending p {
+  margin: 0;
+  max-width: 28rem;
+  line-height: 1.4;
 }
 
 .preview-error {

@@ -173,7 +173,12 @@ export function useClassifyMedia() {
   }
 
   function mediaPreviewUrl(item) {
+    // Solo preview web — nunca original HD.
     return storageUrl(item?.view_url || '');
+  }
+
+  function mediaThumbUrl(item) {
+    return storageUrl(item?.thumb_url || '');
   }
 
   async function downloadOriginal(item = current.value) {
@@ -214,7 +219,7 @@ export function useClassifyMedia() {
 
   async function loadRiders() {
     try {
-      const { data } = await api.get('/api/riders', { params: { has_plate: 1 } });
+      const { data } = await api.get('/api/riders', { params: { has_plate: 1, lite: 1 } });
       allRiders.value = (data.data || []).slice().sort((a, b) => {
         const pa = Number(a.plate_number) || 9999;
         const pb = Number(b.plate_number) || 9999;
@@ -504,6 +509,7 @@ export function useClassifyMedia() {
     assignCurrent,
     unassignCurrent,
     mediaPreviewUrl,
+    mediaThumbUrl,
     downloadOriginal,
     formatBytes,
     formatWhen,
