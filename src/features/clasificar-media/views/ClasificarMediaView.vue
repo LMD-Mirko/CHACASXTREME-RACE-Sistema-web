@@ -93,21 +93,21 @@
         <button
           type="button"
           class="tool-btn"
-          :class="{ active: multiMode }"
-          title="Selección múltiple (M)"
-          @click="multiMode = !multiMode; if (!multiMode) clearMulti()"
-        >
-          <span class="material-icons">library_add_check</span>
-          Multi
-        </button>
-        <button
-          v-if="multiMode"
-          type="button"
-          class="tool-btn"
+          title="Seleccionar todas las de esta página"
           @click="toggleSelectAllVisible"
         >
           <span class="material-icons">select_all</span>
-          {{ selectedCount === items.length ? 'Ninguno' : 'Todos' }}
+          {{ selectedCount === items.length && items.length ? 'Ninguna' : 'Todas' }}
+        </button>
+        <button
+          v-if="selectedCount"
+          type="button"
+          class="tool-btn"
+          title="Limpiar selección"
+          @click="clearMulti"
+        >
+          <span class="material-icons">deselect</span>
+          Limpiar ({{ selectedCount }})
         </button>
         <button type="button" class="tool-btn" :disabled="loading" @click="load()">
           <span class="material-icons" :class="{ spin: loading }">refresh</span>
@@ -175,7 +175,7 @@
               }"
               @click="onThumbClick(item, $event)"
             >
-              <span v-if="multiMode" class="check" :class="{ on: !!selectedMap[item.id] }">
+              <span class="check" :class="{ on: !!selectedMap[item.id] }">
                 <span class="material-icons">{{ selectedMap[item.id] ? 'check_box' : 'check_box_outline_blank' }}</span>
               </span>
               <span class="thumb-idx">{{ (page - 1) * PAGE_SIZE + idx + 1 }}</span>
@@ -336,7 +336,7 @@
         </div>
 
         <p class="assign-hint">
-          Activá <b>Multi</b> para varias fotos. Tocá varios competidores (recientes o buscador) para asignar a varios a la vez.
+          Tocá varias fotos en la cola para marcarlas (como al subir). Sumá uno o más competidores y asigná de una.
         </p>
 
         <div v-if="recentRiders.length" class="recent-block">
@@ -413,7 +413,7 @@
 
         <div class="shortcuts">
           <p><kbd>←</kbd><kbd>→</kbd> navegar (cambia de página al borde)</p>
-          <p><kbd>Enter</kbd> asignar · <kbd>M</kbd> multi fotos · <kbd>Esc</kbd> limpiar</p>
+          <p><kbd>Enter</kbd> asignar · <kbd>Esc</kbd> limpiar selección · <kbd>Ctrl</kbd>+<kbd>A</kbd> todas</p>
           <p>Página {{ page }}/{{ meta.last_page || 1 }} · {{ PAGE_SIZE }} por página</p>
         </div>
       </aside>
@@ -580,10 +580,9 @@ function shortName(r) {
   return `${n.slice(0, 12)}…`;
 }
 
-function onThumbClick(item, event) {
-  const toggleMulti = event.shiftKey || multiMode.value;
-  selectItem(item.id, { toggleMulti });
-  if (!multiMode.value) mobilePane.value = 'preview';
+function onThumbClick(item) {
+  selectItem(item.id, { toggleMulti: true });
+  // En móvil nos quedamos en la cola para seguir marcando varias.
 }
 
 async function doAssign() {
@@ -1059,12 +1058,23 @@ watch(
   top: 4px;
   right: 4px;
   z-index: 2;
-  color: #fff;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+
+.check .material-icons {
+  font-size: 18px;
 }
 
 .check.on {
-  color: #34d399;
+  color: #111;
+  background: #ff5e00;
 }
 
 .pane-preview {

@@ -67,7 +67,8 @@ export function useClassifyMedia() {
   const selectedId = ref(null);
   /** @type {import('vue').Ref<Record<number, true>>} */
   const selectedMap = ref({});
-  const multiMode = ref(false);
+  /** Siempre se puede marcar varias (como elegir fotos para subir). */
+  const multiMode = ref(true);
 
   const allRiders = ref([]);
   const selectedRiderId = ref('');
@@ -297,9 +298,10 @@ export function useClassifyMedia() {
     if (canPrevPage.value) return goToPage(page.value - 1);
   }
 
-  function selectItem(id, { toggleMulti = false } = {}) {
-    if (toggleMulti) multiMode.value = true;
-    if (multiMode.value || toggleMulti) {
+  function selectItem(id, { toggleMulti = true } = {}) {
+    // Por defecto: toggle en la selección múltiple (estilo galería / subir fotos).
+    if (toggleMulti !== false) {
+      multiMode.value = true;
       const next = { ...selectedMap.value };
       if (next[id]) delete next[id];
       else next[id] = true;
@@ -312,7 +314,7 @@ export function useClassifyMedia() {
 
   function toggleSelectAllVisible() {
     multiMode.value = true;
-    if (selectedCount.value === items.value.length) {
+    if (selectedCount.value === items.value.length && items.value.length > 0) {
       selectedMap.value = {};
       return;
     }
@@ -323,7 +325,6 @@ export function useClassifyMedia() {
 
   function clearMulti() {
     selectedMap.value = {};
-    multiMode.value = false;
   }
 
   async function selectNext(delta = 1) {
@@ -358,7 +359,7 @@ export function useClassifyMedia() {
     }
 
     const bulkIds = Object.keys(selectedMap.value).map(Number);
-    const ids = (multiMode.value || bulkIds.length > 1) && bulkIds.length
+    const ids = bulkIds.length
       ? bulkIds
       : (current.value ? [current.value.id] : []);
 
@@ -382,8 +383,7 @@ export function useClassifyMedia() {
         recentRiders.value = pushRecent(r) || recentRiders.value;
       });
       selectedMap.value = {};
-      multiMode.value = false;
-      // Mantener riders seleccionados para asignar más rápido en serie
+      // Recargar página actual (el total baja; puede vaciar la página)
       await load({ page: page.value });
       return true;
     } catch (e) {
@@ -418,7 +418,7 @@ export function useClassifyMedia() {
       || e.target?.closest?.('.app-select');
 
     if (e.key === 'Escape') {
-      if (multiMode.value || selectedCount.value) {
+      if (selectedCount.value) {
         clearMulti();
         e.preventDefault();
       }
@@ -436,17 +436,15 @@ export function useClassifyMedia() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       assignCurrent();
-    } else if (e.key === 'm') {
+    } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      multiMode.value = !multiMode.value;
-      if (!multiMode.value) selectedMap.value = {};
+      toggleSelectAllVisible();
     }
   }
 
   // Al cambiar filtros → página 1
   watch(filters, () => {
     selectedMap.value = {};
-    multiMode.value = false;
     load({ page: 1 });
   }, { deep: true });
 
