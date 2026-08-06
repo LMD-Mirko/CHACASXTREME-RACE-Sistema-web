@@ -15,11 +15,16 @@ export async function assignRaceMedia(mediaId, riderId) {
   return data;
 }
 
-export async function assignRaceMediaBulk(mediaIds, riderId) {
-  const { data } = await api.post('/api/admin/race-media/assign-bulk', {
+export async function assignRaceMediaBulk(mediaIds, riderIdOrIds) {
+  const payload = {
     media_ids: mediaIds,
-    rider_id: riderId,
-  });
+  };
+  if (Array.isArray(riderIdOrIds)) {
+    payload.rider_ids = riderIdOrIds.map(Number).filter(Boolean);
+  } else {
+    payload.rider_id = Number(riderIdOrIds);
+  }
+  const { data } = await api.post('/api/admin/race-media/assign-bulk', payload);
   return data;
 }
 

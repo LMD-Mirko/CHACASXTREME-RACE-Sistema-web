@@ -330,18 +330,24 @@
       <aside class="pane pane-assign" :class="{ 'pane--hidden-mobile': mobilePane !== 'assign' }">
         <div class="pane-title">
           <span>Asignar a competidor</span>
-          <strong v-if="multiMode && selectedCount">{{ selectedCount }} sels.</strong>
+          <strong v-if="selectedCount || selectedRiderCount">
+            {{ selectedCount || 1 }} media · {{ selectedRiderCount || 0 }} riders
+          </strong>
         </div>
 
+        <p class="assign-hint">
+          Activá <b>Multi</b> para varias fotos. Tocá varios competidores (recientes o buscador) para asignar a varios a la vez.
+        </p>
+
         <div v-if="recentRiders.length" class="recent-block">
-          <p class="recent-label">Recientes</p>
+          <p class="recent-label">Recientes · tocá para sumar/quitar</p>
           <div class="recent-chips">
             <button
               v-for="r in recentRiders"
               :key="r.id"
               type="button"
               class="recent-chip"
-              :class="{ active: Number(selectedRiderId) === Number(r.id) }"
+              :class="{ active: !!selectedRiders.find((x) => Number(x.id) === Number(r.id)) }"
               @click="pickRecent(r)"
             >
               <span class="plate">#{{ r.plate_number || '—' }}</span>
@@ -350,31 +356,47 @@
           </div>
         </div>
 
-        <label class="search-label">Competidor</label>
+        <label class="search-label">Sumar competidor</label>
         <div class="select-wrap">
           <AppSelect
-            v-model="selectedRiderId"
+            :model-value="selectedRiderId"
             :options="riderSelectOptions"
             placeholder="Escribe placa o nombre…"
             icon="badge"
             searchable
+            @update:model-value="onRiderSelect"
           />
+        </div>
+
+        <div v-if="selectedRiders.length" class="picked-riders">
+          <div class="picked-riders__head">
+            <span>Seleccionados ({{ selectedRiderCount }})</span>
+            <button type="button" class="linkish" @click="clearRiders">Limpiar</button>
+          </div>
+          <div class="picked-riders__list">
+            <button
+              v-for="r in selectedRiders"
+              :key="'pick-' + r.id"
+              type="button"
+              class="picked-chip"
+              @click="toggleRider(r)"
+              :title="'Quitar #' + (r.plate_number || '')"
+            >
+              <span>#{{ r.plate_number || '—' }}</span>
+              <span class="material-icons">close</span>
+            </button>
+          </div>
         </div>
 
         <div class="assign-actions">
           <button
             type="button"
             class="assign-btn"
-            :disabled="!selectedRider || assigning || (!current && !selectedCount)"
+            :disabled="!selectedRiderCount || assigning || (!current && !selectedCount)"
             @click="doAssign"
           >
             <span class="material-icons">{{ assigning ? 'sync' : 'person_add' }}</span>
-            <span v-if="multiMode && selectedCount > 1">
-              Asignar {{ selectedCount }} → #{{ selectedRider?.plate_number || '—' }}
-            </span>
-            <span v-else>
-              Asignar → #{{ selectedRider?.plate_number || '—' }}
-            </span>
+            <span>{{ assignButtonLabel }}</span>
           </button>
 
           <button
@@ -391,7 +413,7 @@
 
         <div class="shortcuts">
           <p><kbd>←</kbd><kbd>→</kbd> navegar (cambia de página al borde)</p>
-          <p><kbd>Enter</kbd> asignar · <kbd>M</kbd> multi · <kbd>Esc</kbd> limpiar</p>
+          <p><kbd>Enter</kbd> asignar · <kbd>M</kbd> multi fotos · <kbd>Esc</kbd> limpiar</p>
           <p>Página {{ page }}/{{ meta.last_page || 1 }} · {{ PAGE_SIZE }} por página</p>
         </div>
       </aside>
@@ -486,6 +508,8 @@ const {
   multiMode,
   selectedRiderId,
   selectedRider,
+  selectedRiders,
+  selectedRiderCount,
   recentRiders,
   riderSelectOptions,
   current,
@@ -499,6 +523,9 @@ const {
   toggleSelectAllVisible,
   clearMulti,
   pickRecent,
+  toggleRider,
+  clearRiders,
+  onRiderSelect,
   assignCurrent,
   unassignCurrent,
   nextPage,
@@ -508,6 +535,22 @@ const {
   formatBytes,
   formatWhen,
 } = useClassifyMedia();
+
+const assignButtonLabel = computed(() => {
+  const mediaN = selectedCount.value > 0 ? selectedCount.value : (current.value ? 1 : 0);
+  const riderN = selectedRiderCount.value;
+  if (!mediaN || !riderN) return 'Asignar';
+  if (mediaN === 1 && riderN === 1) {
+    return `Asignar → #${selectedRiders.value[0]?.plate_number || '—'}`;
+  }
+  if (riderN === 1) {
+    return `Asignar ${mediaN} → #${selectedRiders.value[0]?.plate_number || '—'}`;
+  }
+  if (mediaN === 1) {
+    return `Asignar 1 → ${riderN} riders`;
+  }
+  return `Asignar ${mediaN} → ${riderN} riders`;
+});
 
 /** CSS rotate: original con metadata, o override manual vs píxeles del archivo. */
 const videoRotateClass = computed(() => {
@@ -1224,6 +1267,71 @@ watch(
 .pane-assign {
   padding-bottom: 12px;
   overflow: visible;
+}
+
+.assign-hint {
+  margin: 0;
+  padding: 8px 14px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.assign-hint b {
+  color: var(--color-primary, #ff5e00);
+}
+
+.picked-riders {
+  margin: 10px 14px 0;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.picked-riders__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.linkish {
+  border: 0;
+  background: none;
+  color: var(--color-primary, #ff5e00);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.picked-riders__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.picked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 94, 0, 0.45);
+  background: rgba(255, 94, 0, 0.12);
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 8px 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.picked-chip .material-icons {
+  font-size: 14px;
+  opacity: 0.8;
 }
 
 .recent-block {

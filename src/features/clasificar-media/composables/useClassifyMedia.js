@@ -71,14 +71,20 @@ export function useClassifyMedia() {
 
   const allRiders = ref([]);
   const selectedRiderId = ref('');
+  const recentRiders = ref(loadRecent());
+  /** @type {import('vue').Ref<Record<number, object>>} */
+  const selectedRidersMap = ref({});
+  const selectedRiders = computed(() => Object.values(selectedRidersMap.value));
+  const selectedRiderCount = computed(() => selectedRiders.value.length);
   const selectedRider = computed(() => {
+    if (selectedRiders.value.length === 1) return selectedRiders.value[0];
     const id = Number(selectedRiderId.value);
-    if (!id) return null;
-    return allRiders.value.find((r) => Number(r.id) === id)
+    if (!id) return selectedRiders.value[0] || null;
+    return selectedRidersMap.value[id]
+      || allRiders.value.find((r) => Number(r.id) === id)
       || recentRiders.value.find((r) => Number(r.id) === id)
       || null;
   });
-  const recentRiders = ref(loadRecent());
 
   const riderSelectOptions = computed(() => allRiders.value.map((r) => ({
     value: r.id,
@@ -86,6 +92,55 @@ export function useClassifyMedia() {
     plate: r.plate_number != null ? String(r.plate_number) : '',
     searchText: [r.plate_number, r.full_name, r.nickname].filter(Boolean).join(' '),
   })));
+
+  function resolveRider(idOrRider) {
+    if (idOrRider && typeof idOrRider === 'object') return idOrRider;
+    const id = Number(idOrRider);
+    if (!id) return null;
+    return allRiders.value.find((r) => Number(r.id) === id)
+      || recentRiders.value.find((r) => Number(r.id) === id)
+      || selectedRidersMap.value[id]
+      || null;
+  }
+
+  function toggleRider(riderLike) {
+    const rider = resolveRider(riderLike);
+    if (!rider?.id) return;
+    const id = Number(rider.id);
+    const next = { ...selectedRidersMap.value };
+    if (next[id]) delete next[id];
+    else {
+      next[id] = {
+        id: rider.id,
+        plate_number: rider.plate_number,
+        full_name: rider.full_name,
+        nickname: rider.nickname,
+      };
+    }
+    selectedRidersMap.value = next;
+    selectedRiderId.value = next[id] ? id : (Object.keys(next)[0] || '');
+  }
+
+  function clearRiders() {
+    selectedRidersMap.value = {};
+    selectedRiderId.value = '';
+  }
+
+  function onRiderSelect(id) {
+    selectedRiderId.value = id;
+    const rider = resolveRider(id);
+    if (!rider?.id) return;
+    const rid = Number(rider.id);
+    selectedRidersMap.value = {
+      ...selectedRidersMap.value,
+      [rid]: {
+        id: rider.id,
+        plate_number: rider.plate_number,
+        full_name: rider.full_name,
+        nickname: rider.nickname,
+      },
+    };
+  }
 
   const current = computed(() => {
     if (!selectedId.value) return items.value[0] || null;
@@ -243,6 +298,7 @@ export function useClassifyMedia() {
   }
 
   function selectItem(id, { toggleMulti = false } = {}) {
+    if (toggleMulti) multiMode.value = true;
     if (multiMode.value || toggleMulti) {
       const next = { ...selectedMap.value };
       if (next[id]) delete next[id];
@@ -255,6 +311,7 @@ export function useClassifyMedia() {
   }
 
   function toggleSelectAllVisible() {
+    multiMode.value = true;
     if (selectedCount.value === items.value.length) {
       selectedMap.value = {};
       return;
@@ -290,14 +347,13 @@ export function useClassifyMedia() {
   }
 
   function pickRecent(rider) {
-    if (!rider?.id) return;
-    selectedRiderId.value = rider.id;
+    toggleRider(rider);
   }
 
   async function assignCurrent() {
-    const rider = selectedRider.value;
-    if (!rider?.id) {
-      showToast('Elige un competidor primero');
+    const riders = selectedRiders.value;
+    if (!riders.length) {
+      showToast('Elige al menos un competidor');
       return false;
     }
 
@@ -314,19 +370,20 @@ export function useClassifyMedia() {
     assigning.value = true;
     error.value = '';
     try {
-      if (ids.length === 1) {
-        const res = await assignRaceMedia(ids[0], rider.id);
+      if (riders.length === 1 && ids.length === 1) {
+        const res = await assignRaceMedia(ids[0], riders[0].id);
         showToast(res.message || 'Asignado');
       } else {
-        const res = await assignRaceMediaBulk(ids, rider.id);
-        showToast(res.message || `${ids.length} asignados`);
+        const res = await assignRaceMediaBulk(ids, riders.map((r) => r.id));
+        showToast(res.message || `${ids.length} media → ${riders.length} riders`);
       }
 
-      recentRiders.value = pushRecent(rider) || recentRiders.value;
+      riders.forEach((r) => {
+        recentRiders.value = pushRecent(r) || recentRiders.value;
+      });
       selectedMap.value = {};
       multiMode.value = false;
-
-      // Recargar página actual (el total baja; puede vaciar la página)
+      // Mantener riders seleccionados para asignar más rápido en serie
       await load({ page: page.value });
       return true;
     } catch (e) {
@@ -423,6 +480,8 @@ export function useClassifyMedia() {
     multiMode,
     selectedRiderId,
     selectedRider,
+    selectedRiders,
+    selectedRiderCount,
     recentRiders,
     riderSelectOptions,
     current,
@@ -441,6 +500,9 @@ export function useClassifyMedia() {
     toggleSelectAllVisible,
     clearMulti,
     pickRecent,
+    toggleRider,
+    clearRiders,
+    onRiderSelect,
     assignCurrent,
     unassignCurrent,
     mediaPreviewUrl,
